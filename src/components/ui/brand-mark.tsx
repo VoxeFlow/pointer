@@ -19,8 +19,8 @@ export function BrandMark({
   priority = false,
 }: BrandMarkProps) {
   const src = mode === "full" ? "/brand/logo-pointer-full.png" : "/brand/logo-simples.png";
-  const width = mode === "full" ? 350 : 48;
-  const height = mode === "full" ? 120 : 48;
+  const width = mode === "full" ? 210 : 48;
+  const height = mode === "full" ? 210 : 48;
 
   const content = (
     <div
