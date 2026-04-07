@@ -24,24 +24,36 @@ export async function uploadPhotoToCloudinary({
     !env.POINTER_CLOUDINARY_API_SECRET
   ) {
     throw new Error(
-      "Cloudinary nao configurado. Use apenas uma conta exclusiva do Pointer para producao.",
+      "Cloudinary não configurado. Adicione as chaves POINTER_CLOUDINARY_* no painel da Vercel.",
     );
   }
 
   const publicId = stripExtension(fileName);
   const timestamp = Math.floor(Date.now() / 1000);
-  const signatureBase = [
-    `folder=${env.POINTER_CLOUDINARY_FOLDER}`,
-    "overwrite=false",
-    `public_id=${publicId}`,
-    `timestamp=${timestamp}`,
-  ].join("&");
+  
+  // Parâmetros para assinatura DEVEM estar em ordem alfabética
+  const paramsToSign = {
+    folder: env.POINTER_CLOUDINARY_FOLDER,
+    overwrite: "false",
+    public_id: publicId,
+    timestamp: String(timestamp),
+  };
+
+  const signatureBase = Object.entries(paramsToSign)
+    .map(([key, value]) => `${key}=${value}`)
+    .join("&");
+
   const signature = createHash("sha1")
     .update(`${signatureBase}${env.POINTER_CLOUDINARY_API_SECRET}`)
     .digest("hex");
 
+  // Converter File para Base64 (mais seguro para Serverless/Edge)
+  const arrayBuffer = await file.arrayBuffer();
+  const base64Data = Buffer.from(arrayBuffer).toString("base64");
+  const dataUri = `data:${file.type};base64,${base64Data}`;
+
   const formData = new FormData();
-  formData.append("file", file);
+  formData.append("file", dataUri);
   formData.append("folder", env.POINTER_CLOUDINARY_FOLDER);
   formData.append("public_id", publicId);
   formData.append("overwrite", "false");
@@ -59,7 +71,21 @@ export async function uploadPhotoToCloudinary({
 
   if (!response.ok) {
     const errorText = await response.text();
-    throw new Error(`Cloudinary upload failed: ${response.status} ${errorText}`);
+    console.error("[CLOUDINARY_UPLOAD_ERROR]", {
+      status: response.status,
+      body: errorText,
+      publicId,
+    });
+    
+    let message = "Cloudinary upload failed";
+    try {
+      const parsed = JSON.parse(errorText);
+      if (parsed.error?.message) message = parsed.error.message;
+    } catch {
+      // Ignora erro de parse
+    }
+    
+    throw new Error(`Cloudinary: ${message}`);
   }
 
   const payload = (await response.json()) as {
