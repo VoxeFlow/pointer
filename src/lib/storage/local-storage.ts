@@ -12,6 +12,13 @@ type UploadPhotoInput = {
 };
 
 export async function uploadPhotoToLocal({ file, fileName }: UploadPhotoInput): Promise<UploadedPhoto> {
+  // Verificação para evitar falhas silenciosas na Vercel
+  if (process.env.VERCEL === "1") {
+    throw new Error(
+      "O driver de storage 'local' não funciona na Vercel (sistema de arquivos somente-leitura). Configure POINTER_STORAGE_DRIVER=supabase no seu painel da Vercel.",
+    );
+  }
+
   const folder = path.join(process.cwd(), env.POINTER_STORAGE_LOCAL_DIR);
   await mkdir(folder, { recursive: true });
 
