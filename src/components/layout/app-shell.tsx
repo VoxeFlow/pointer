@@ -126,25 +126,13 @@ export function AppShell({
             ) : null}
           </div>
 
-          <div className="flex items-center gap-4">
-            <div className="hidden flex-col items-end gap-0.5 md:flex">
-              <span className="text-sm font-bold leading-none text-white">{session.name}</span>
-              <span className="text-[0.65rem] font-medium uppercase tracking-wider text-white/40">{session.role}</span>
+          <div className="flex items-center gap-3">
+            <div className="flex flex-col items-end md:flex">
+              <span className="max-w-[120px] truncate text-xs font-bold leading-none text-white sm:max-w-none sm:text-sm">{session.name}</span>
+              <span className="text-[0.6rem] font-medium uppercase tracking-wider text-white/40">{session.role}</span>
             </div>
 
-            <div className="flex h-10 items-center gap-2 rounded-2xl border border-white/10 bg-white/5 pl-4 pr-1">
-              <span className="text-sm font-semibold text-white/90 md:hidden">{getInitials(session.name)}</span>
-              <div className="hidden h-8 w-8 place-items-center rounded-xl bg-highlight text-xs font-bold text-brand md:grid">
-                {getInitials(session.name)}
-              </div>
-              <form action="/api/auth/logout" method="POST">
-                <button type="submit" className="flex h-8 items-center rounded-xl px-3 text-[0.7rem] font-bold uppercase tracking-wider text-white/50 transition hover:bg-white/10 hover:text-white active:scale-95">
-                  Sair
-                </button>
-              </form>
-            </div>
-
-            <div ref={mobileMenuRef} className="relative md:hidden">
+            <div ref={mobileMenuRef} className="relative">
               <button
                 type="button"
                 aria-expanded={mobileMenuOpen}
@@ -158,8 +146,8 @@ export function AppShell({
               {mobileMenuOpen ? (
                 <div className="absolute right-0 top-14 w-[220px] rounded-[1.25rem] border border-white/10 bg-[#171717] p-2 shadow-[0_18px_36px_rgba(0,0,0,0.28)]">
                   <div className="grid gap-1">
-                    <div className="mb-2 px-3 py-2">
-                       <p className="text-xs font-bold uppercase tracking-widest text-white/40">Navegaçao</p>
+                    <div className="mb-1 px-3 py-2">
+                       <p className="text-[0.6rem] font-bold uppercase tracking-widest text-white/30">Navegaçao</p>
                     </div>
                     {links.map((link) => {
                       const active = isActiveLink(link.href);
@@ -180,7 +168,7 @@ export function AppShell({
                     })}
                     <div className="my-2 h-px bg-white/10" />
                     <form action="/api/auth/logout" method="POST">
-                      <button type="submit" className="flex w-full items-center gap-3 rounded-[1rem] px-3 py-3 text-sm font-bold text-red-400 transition hover:bg-white/8">
+                      <button type="submit" className="flex w-full items-center gap-3 rounded-[1.1rem] bg-red-500/10 px-3 py-3 text-sm font-bold text-red-400 transition hover:bg-red-500/20 active:scale-[0.98]">
                         Sair do Pointer
                       </button>
                     </form>
