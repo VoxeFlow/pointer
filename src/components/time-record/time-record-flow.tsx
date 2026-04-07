@@ -36,6 +36,7 @@ function formatClock(date: Date) {
   return new Intl.DateTimeFormat("pt-BR", {
     hour: "2-digit",
     minute: "2-digit",
+    timeZone: "America/Sao_Paulo",
   }).format(date);
 }
 
@@ -45,6 +46,7 @@ function formatLongDate(date: Date) {
     day: "numeric",
     month: "long",
     year: "numeric",
+    timeZone: "America/Sao_Paulo",
   }).format(date);
 }
 
@@ -100,6 +102,14 @@ export function TimeRecordFlow({ user }: { user: UserWithContext }) {
     const interval = window.setInterval(() => setNow(new Date()), 1000);
     return () => window.clearInterval(interval);
   }, []);
+
+  useEffect(() => {
+    if (!result) return;
+    const timer = setTimeout(() => {
+      window.location.href = "/employee";
+    }, 3000);
+    return () => clearTimeout(timer);
+  }, [result]);
 
   useEffect(() => {
     if (didAutoOpenCamera || searchParams.get("openCamera") !== "1") {
@@ -328,7 +338,7 @@ export function TimeRecordFlow({ user }: { user: UserWithContext }) {
                 type="button"
                 onClick={handleSubmit}
                 disabled={isPending}
-                className="flex items-center justify-center gap-2 rounded-2xl bg-brand py-4 font-bold text-white shadow-lg transition hover:bg-brand-strong active:scale-95 disabled:opacity-50"
+                className="flex items-center justify-center gap-2 rounded-2xl bg-[#171717] py-4 font-bold text-white shadow-lg transition hover:bg-black active:scale-95 disabled:opacity-50"
               >
                 {isPending ? <LoaderCircle className="size-5 animate-spin" /> : <ShieldCheck className="size-5" />}
                 Confirmar

@@ -19,11 +19,19 @@ export function getDayRange(date = new Date()) {
 }
 
 export function formatDateTime(date: Date) {
-  return format(date, "dd/MM/yyyy 'as' HH:mm", { locale: ptBR });
+  return new Intl.DateTimeFormat("pt-BR", {
+    dateStyle: "short",
+    timeStyle: "short",
+    timeZone: "America/Sao_Paulo",
+  }).format(date);
 }
 
 export function formatTime(date: Date) {
-  return format(date, "HH:mm", { locale: ptBR });
+  return new Intl.DateTimeFormat("pt-BR", {
+    hour: "2-digit",
+    minute: "2-digit",
+    timeZone: "America/Sao_Paulo",
+  }).format(date);
 }
 
 export function getNextRecordType(records: Pick<TimeRecord, "recordType">[], maxRecords: number) {

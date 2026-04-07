@@ -17,6 +17,7 @@ function formatClock(date: Date) {
     hour: "2-digit",
     minute: "2-digit",
     second: "2-digit",
+    timeZone: "America/Sao_Paulo",
   }).format(date);
 }
 
@@ -26,6 +27,7 @@ function formatLongDate(date: Date) {
     day: "numeric",
     month: "long",
     year: "numeric",
+    timeZone: "America/Sao_Paulo",
   }).format(date);
 }
 
@@ -76,14 +78,32 @@ export function EmployeePanel({
           onClick={goToRecord}
           onContextMenu={(event) => event.preventDefault()}
           disabled={!canRecord}
-          className={`relative mt-5 mx-auto flex min-h-[210px] w-full max-w-[320px] select-none touch-manipulation overflow-hidden rounded-[1.9rem] px-6 py-6 text-lg font-semibold transition active:scale-[0.99] ${
-            canRecord ? "bg-[#171717] text-white" : "bg-[#d9d3ca] text-[#5f5951]"
+          className={`group relative mt-6 flex w-full flex-col items-center justify-center overflow-hidden rounded-[2rem] px-6 py-10 transition-all duration-300 active:scale-[0.98] ${
+            canRecord 
+              ? "bg-gradient-to-br from-[#171717] to-[#262626] text-white shadow-[0_20px_40px_rgba(0,0,0,0.15)] hover:shadow-[0_25px_50px_rgba(0,0,0,0.2)]" 
+              : "bg-[#f5f5f5] text-muted-foreground opacity-60"
           }`}
           style={{ WebkitUserSelect: "none", userSelect: "none", WebkitTouchCallout: "none" }}
         >
-          <span className="relative z-10 flex h-full w-full items-center justify-center text-center">
-            <span className="text-[1.7rem] leading-none">{canRecord ? "Registrar ponto" : "Ponto concluido"}</span>
-          </span>
+          <div className="absolute inset-0 bg-[radial-gradient(circle_at_50%_0%,rgba(255,255,255,0.05),transparent)] opacity-0 transition-opacity group-hover:opacity-100" />
+          
+          <div className="flex flex-col items-center gap-3">
+            <div className={`flex h-14 w-14 items-center justify-center rounded-2xl transition-all duration-500 ${
+              canRecord ? "bg-white/10 group-hover:bg-brand group-hover:text-white" : "bg-gray-200"
+            }`}>
+              <CalendarDays className="size-7" />
+            </div>
+            <div className="text-center">
+              <span className="block text-[1.4rem] font-bold leading-tight tracking-tight">
+                {canRecord ? "Registrar ponto" : "Jornada concluida"}
+              </span>
+              {canRecord && (
+                <span className="mt-1 block text-xs font-medium text-white/50 group-hover:text-white/70">
+                  Clique para abrir a câmera agora
+                </span>
+              )}
+            </div>
+          </div>
         </button>
       </div>
 
