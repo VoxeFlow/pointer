@@ -119,7 +119,8 @@ export const timeRecordService = {
             message: error instanceof Error ? error.message : "upload_failed",
           },
         });
-        throw new TimeRecordError("PHOTO_UPLOAD_FAILED", "Nao foi possivel salvar a foto da marcacao.");
+        const message = error instanceof Error ? error.message : "Nao foi possivel salvar a foto da marcacao.";
+        throw new TimeRecordError("PHOTO_UPLOAD_FAILED", message);
       }
     }
 

@@ -31,17 +31,30 @@ export async function uploadPhotoToCloudinary({
   const publicId = stripExtension(fileName);
   const timestamp = Math.floor(Date.now() / 1000);
   
-  // Parâmetros para assinatura DEVEM estar em ordem alfabética
-  const paramsToSign = {
+  // Diagnostico de Ambiente (sem vazar segredos)
+  console.log("[CLOUDINARY_DIAGNOSTIC]", {
+    hasCloudName: !!env.POINTER_CLOUDINARY_CLOUD_NAME,
+    hasApiKey: !!env.POINTER_CLOUDINARY_API_KEY,
+    hasApiSecret: !!env.POINTER_CLOUDINARY_API_SECRET,
+    folder: env.POINTER_CLOUDINARY_FOLDER,
+    publicId,
+    timestamp,
+  });
+
+  // Parâmetros para assinatura DEVEM estar em ordem alfabética de chave
+  const paramsToSign: Record<string, string> = {
     folder: env.POINTER_CLOUDINARY_FOLDER,
     overwrite: "false",
     public_id: publicId,
     timestamp: String(timestamp),
   };
 
-  const signatureBase = Object.entries(paramsToSign)
-    .map(([key, value]) => `${key}=${value}`)
+  const signatureBase = Object.keys(paramsToSign)
+    .sort()
+    .map((key) => `${key}=${paramsToSign[key]}`)
     .join("&");
+
+  console.log("[CLOUDINARY_SIGNATURE_BASE]", signatureBase);
 
   const signature = createHash("sha1")
     .update(`${signatureBase}${env.POINTER_CLOUDINARY_API_SECRET}`)
