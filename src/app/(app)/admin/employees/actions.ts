@@ -7,6 +7,8 @@ import { requireRole } from "@/lib/auth/guards";
 import { orderedWeekdays, type WeekdayValue } from "@/lib/schedule";
 import { adminUserService } from "@/services/admin-user-service";
 import { createEmployeeSchema, updateEmployeeSchema } from "@/validations/admin-user";
+import { timeRecordService } from "@/services/time-record-service";
+import type { RecordType } from "@prisma/client";
 
 function parseTimeToMinutes(value: string | null) {
   if (!value || !/^\d{2}:\d{2}$/.test(value)) {
@@ -108,6 +110,44 @@ export async function updateEmployeeAction(employeeId: string, formData: FormDat
     redirect(destination);
   } catch (error) {
     const message = error instanceof Error ? error.message : "Nao foi possivel atualizar o funcionario.";
+    if (message === "NEXT_REDIRECT") {
+      throw error;
+    }
+    redirect(`/admin/employees/${employeeId}?error=${encodeURIComponent(message)}`);
+  }
+}
+
+export async function createManualRecordAction(employeeId: string, _: unknown, formData: FormData) {
+  const session = await requireRole("ADMIN");
+
+  try {
+    const date = String(formData.get("date") ?? "");
+    const time = String(formData.get("time") ?? "");
+    const type = String(formData.get("type") ?? "") as RecordType;
+    const reason = String(formData.get("reason") ?? "");
+
+    if (!date || !time || !type || !reason) {
+      throw new Error("Preencha todos os campos para o ajuste manual.");
+    }
+
+    const timestamp = new Date(`${date}T${time}:00`);
+
+    await timeRecordService.createManualRecord({
+      organizationId: session.organizationId,
+      userId: employeeId,
+      actorUserId: session.sub,
+      recordType: type,
+      timestamp,
+      reason,
+    });
+
+    revalidatePath(`/admin/employees/${employeeId}`);
+    revalidatePath("/admin/records");
+    revalidatePath("/admin/reports");
+    const destination = `/admin/employees/${employeeId}?manual_created=1`;
+    redirect(destination);
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "Nao foi possivel criar o registro manual.";
     if (message === "NEXT_REDIRECT") {
       throw error;
     }

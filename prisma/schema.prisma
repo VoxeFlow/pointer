@@ -22,6 +22,7 @@ enum RecordType {
 enum RecordSource {
   PWA
   BROWSER
+  MANUAL
 }
 
 enum OrganizationStatus {
@@ -163,6 +164,7 @@ model TimeRecord {
   photoMetadataJson   Json?         @map("photo_metadata_json")
   isInconsistent      Boolean       @default(false) @map("is_inconsistent")
   inconsistencyReason String?       @map("inconsistency_reason")
+  adjustmentNote      String?       @map("adjustment_note")
   organization        Organization  @relation(fields: [organizationId], references: [id], onDelete: Cascade)
   user                User          @relation(fields: [userId], references: [id], onDelete: Cascade)
   createdAt           DateTime      @default(now()) @map("created_at")

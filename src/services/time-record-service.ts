@@ -172,4 +172,44 @@ export const timeRecordService = {
       label: recordTypeLabels[nextRecordType],
     };
   },
+
+  async createManualRecord(input: {
+    organizationId: string;
+    userId: string;
+    actorUserId: string;
+    recordType: "ENTRY" | "BREAK_OUT" | "BREAK_IN" | "EXIT";
+    timestamp: Date;
+    reason: string;
+  }) {
+    const { organizationId, userId, actorUserId, recordType, timestamp, reason } = input;
+
+    const record = await timeRecordRepository.create({
+      organizationId,
+      userId,
+      recordType,
+      serverTimestamp: timestamp,
+      clientTimestamp: timestamp,
+      photoUrl: "",
+      source: "MANUAL",
+      isInconsistent: false,
+      adjustmentNote: reason,
+      deviceInfo: `Ajuste manual por administrador (ID: ${actorUserId})`,
+    });
+
+    await auditLogRepository.create({
+      organizationId,
+      actorUserId,
+      action: "time_record_manual_adjustment",
+      targetType: "time_record",
+      targetId: record.id,
+      metadataJson: {
+        userId,
+        recordType,
+        timestamp: timestamp.toISOString(),
+        reason,
+      },
+    });
+
+    return record;
+  },
 };
