@@ -1,0 +1,9 @@
+{
+  "framework": "nextjs",
+  "crons": [
+    {
+      "path": "/api/cron/monthly-report",
+      "schedule": "0 11 1 * *"
+    }
+  ]
+}

@@ -1,0 +1,277 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum UserRole {
+  ADMIN
+  EMPLOYEE
+}
+
+enum RecordType {
+  ENTRY
+  BREAK_OUT
+  BREAK_IN
+  EXIT
+}
+
+enum RecordSource {
+  PWA
+  BROWSER
+}
+
+enum OrganizationStatus {
+  TRIAL
+  ACTIVE
+  SUSPENDED
+}
+
+enum OrganizationPlan {
+  STARTER
+  PRO
+  ENTERPRISE
+}
+
+enum UpgradeRequestStatus {
+  OPEN
+  CONTACTED
+  CLOSED
+}
+
+enum BillingProvider {
+  STRIPE
+}
+
+enum BillingSubscriptionStatus {
+  NONE
+  TRIALING
+  ACTIVE
+  PAST_DUE
+  CANCELED
+  UNPAID
+  INCOMPLETE
+}
+
+enum TimeAdjustmentRequestStatus {
+  OPEN
+  REVIEWED
+  APPROVED
+  REJECTED
+}
+
+enum Weekday {
+  MONDAY
+  TUESDAY
+  WEDNESDAY
+  THURSDAY
+  FRIDAY
+  SATURDAY
+  SUNDAY
+}
+
+model Organization {
+  id                        String       @id @default(cuid())
+  name                      String
+  slug                      String       @unique
+  legalName                 String?      @map("legal_name")
+  documentNumber            String?      @map("document_number")
+  contactEmail              String?      @map("contact_email")
+  brandDisplayName          String?      @map("brand_display_name")
+  brandLogoUrl              String?      @map("brand_logo_url")
+  brandPrimaryColor         String?      @map("brand_primary_color")
+  brandAccentColor          String?      @map("brand_accent_color")
+  status                    OrganizationStatus @default(TRIAL)
+  plan                      OrganizationPlan   @default(STARTER)
+  maxEmployees              Int          @default(25) @map("max_employees")
+  trialEndsAt               DateTime?    @map("trial_ends_at")
+  timezone                  String       @default("America/Sao_Paulo")
+  defaultDailyWorkloadMin   Int          @default(480) @map("default_daily_workload_min")
+  defaultBreakMinMinutes    Int          @default(60) @map("default_break_min_minutes")
+  defaultLateToleranceMin   Int          @default(10) @map("default_late_tolerance_min")
+  maxRecordsPerDay          Int          @default(4) @map("max_records_per_day")
+  requirePhoto              Boolean      @default(true) @map("require_photo")
+  requireGeolocation        Boolean      @default(true) @map("require_geolocation")
+  allowGalleryFallback      Boolean      @default(false) @map("allow_gallery_fallback")
+  allowExtraordinaryRecords Boolean      @default(false) @map("allow_extraordinary_records")
+  accountantReportEmail     String?      @map("accountant_report_email")
+  monthlyReportEnabled      Boolean      @default(false) @map("monthly_report_enabled")
+  lastMonthlyReportSentAt   DateTime?    @map("last_monthly_report_sent_at")
+  onboardingCompletedAt     DateTime?    @map("onboarding_completed_at")
+  billingProvider           BillingProvider? @map("billing_provider")
+  billingEmail              String?      @map("billing_email")
+  billingCustomerId         String?      @map("billing_customer_id")
+  billingSubscriptionId     String?      @map("billing_subscription_id")
+  billingSubscriptionStatus BillingSubscriptionStatus @default(NONE) @map("billing_subscription_status")
+  billingCurrentPeriodEndsAt DateTime?   @map("billing_current_period_ends_at")
+  billingDelinquentSince    DateTime?    @map("billing_delinquent_since")
+  upgradeRequests           UpgradeRequest[]
+  billingEvents             BillingEvent[]
+  timeAdjustmentRequests    TimeAdjustmentRequest[]
+  users                     User[]
+  timeRecords               TimeRecord[]
+  auditLogs                 AuditLog[]
+  createdAt                 DateTime     @default(now()) @map("created_at")
+  updatedAt                 DateTime     @updatedAt @map("updated_at")
+
+  @@map("organizations")
+}
+
+model User {
+  id             String       @id @default(cuid())
+  organizationId String       @map("organization_id")
+  name           String
+  email          String       @unique
+  passwordHash   String       @map("password_hash")
+  mustChangePassword Boolean  @default(false) @map("must_change_password")
+  role           UserRole
+  employeeCode   String?      @map("employee_code")
+  isActive       Boolean      @default(true) @map("is_active")
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  timeRecords    TimeRecord[]
+  schedule       WorkSchedule?
+  actorLogs      AuditLog[]   @relation("AuditActor")
+  upgradeRequests UpgradeRequest[] @relation("UpgradeRequester")
+  timeAdjustmentRequests TimeAdjustmentRequest[] @relation("AdjustmentRequester")
+  reviewedAdjustmentRequests TimeAdjustmentRequest[] @relation("AdjustmentReviewer")
+  createdAt      DateTime     @default(now()) @map("created_at")
+  updatedAt      DateTime     @updatedAt @map("updated_at")
+
+  @@index([organizationId])
+  @@map("users")
+}
+
+model TimeRecord {
+  id                  String        @id @default(cuid())
+  organizationId      String        @map("organization_id")
+  userId              String        @map("user_id")
+  recordType          RecordType    @map("record_type")
+  serverTimestamp     DateTime      @map("server_timestamp")
+  clientTimestamp     DateTime?     @map("client_timestamp")
+  photoUrl            String        @map("photo_url")
+  latitude            Decimal?      @db.Decimal(10, 7)
+  longitude           Decimal?      @db.Decimal(10, 7)
+  locationAddress     String?       @map("location_address")
+  geocodingProvider   String?       @map("geocoding_provider")
+  accuracy            Float?
+  geoCapturedAt       DateTime?     @map("geo_captured_at")
+  source              RecordSource
+  deviceInfo          String?       @map("device_info")
+  photoMetadataJson   Json?         @map("photo_metadata_json")
+  isInconsistent      Boolean       @default(false) @map("is_inconsistent")
+  inconsistencyReason String?       @map("inconsistency_reason")
+  organization        Organization  @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  user                User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  createdAt           DateTime      @default(now()) @map("created_at")
+
+  @@index([organizationId, userId, serverTimestamp])
+  @@index([organizationId, serverTimestamp])
+  @@map("time_records")
+}
+
+model WorkSchedule {
+  id                   String   @id @default(cuid())
+  userId               String   @unique @map("user_id")
+  expectedStartTime    String   @map("expected_start_time")
+  expectedEndTime      String   @map("expected_end_time")
+  breakMinMinutes      Int      @map("break_min_minutes")
+  lateToleranceMinutes Int      @map("late_tolerance_minutes")
+  dailyWorkloadMinutes Int      @map("daily_workload_minutes")
+  user                 User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  weekdays             WorkScheduleDay[]
+  createdAt            DateTime @default(now()) @map("created_at")
+  updatedAt            DateTime @updatedAt @map("updated_at")
+
+  @@map("work_schedules")
+}
+
+model WorkScheduleDay {
+  id                 String       @id @default(cuid())
+  scheduleId         String       @map("schedule_id")
+  weekday            Weekday
+  isWorkingDay       Boolean      @default(true) @map("is_working_day")
+  startTime          String?      @map("start_time")
+  endTime            String?      @map("end_time")
+  breakMinMinutes    Int          @default(0) @map("break_min_minutes")
+  dailyWorkloadMinutes Int        @default(0) @map("daily_workload_minutes")
+  schedule           WorkSchedule @relation(fields: [scheduleId], references: [id], onDelete: Cascade)
+  createdAt          DateTime     @default(now()) @map("created_at")
+  updatedAt          DateTime     @updatedAt @map("updated_at")
+
+  @@unique([scheduleId, weekday])
+  @@index([scheduleId, weekday])
+  @@map("work_schedule_days")
+}
+
+model AuditLog {
+  id             String        @id @default(cuid())
+  organizationId String?       @map("organization_id")
+  actorUserId    String?       @map("actor_user_id")
+  action         String
+  targetType     String        @map("target_type")
+  targetId       String?       @map("target_id")
+  metadataJson   Json?         @map("metadata_json")
+  organization   Organization? @relation(fields: [organizationId], references: [id], onDelete: SetNull)
+  actorUser      User?         @relation("AuditActor", fields: [actorUserId], references: [id], onDelete: SetNull)
+  createdAt      DateTime      @default(now()) @map("created_at")
+
+  @@index([organizationId, createdAt])
+  @@index([actorUserId, createdAt])
+  @@map("audit_logs")
+}
+
+model UpgradeRequest {
+  id             String               @id @default(cuid())
+  organizationId String               @map("organization_id")
+  requestedById  String?              @map("requested_by_id")
+  currentPlan    OrganizationPlan     @map("current_plan")
+  desiredPlan    OrganizationPlan     @map("desired_plan")
+  status         UpgradeRequestStatus @default(OPEN)
+  message        String?
+  organization   Organization         @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  requestedBy    User?                @relation("UpgradeRequester", fields: [requestedById], references: [id], onDelete: SetNull)
+  createdAt      DateTime             @default(now()) @map("created_at")
+  updatedAt      DateTime             @updatedAt @map("updated_at")
+
+  @@index([organizationId, createdAt])
+  @@map("upgrade_requests")
+}
+
+model BillingEvent {
+  id             String          @id @default(cuid())
+  organizationId String?         @map("organization_id")
+  provider       BillingProvider
+  providerEventId String         @unique @map("provider_event_id")
+  eventType      String          @map("event_type")
+  payloadJson    Json?           @map("payload_json")
+  organization   Organization?   @relation(fields: [organizationId], references: [id], onDelete: SetNull)
+  createdAt      DateTime        @default(now()) @map("created_at")
+
+  @@index([organizationId, createdAt])
+  @@map("billing_events")
+}
+
+model TimeAdjustmentRequest {
+  id             String                      @id @default(cuid())
+  organizationId String                      @map("organization_id")
+  userId         String                      @map("user_id")
+  reviewedById   String?                     @map("reviewed_by_id")
+  requestedDate  DateTime                    @map("requested_date")
+  requestedTime  String?                     @map("requested_time")
+  requestedType  RecordType?                 @map("requested_type")
+  reason         String
+  status         TimeAdjustmentRequestStatus @default(OPEN)
+  reviewNote     String?                     @map("review_note")
+  organization   Organization                @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  user           User                        @relation("AdjustmentRequester", fields: [userId], references: [id], onDelete: Cascade)
+  reviewedBy     User?                       @relation("AdjustmentReviewer", fields: [reviewedById], references: [id], onDelete: SetNull)
+  createdAt      DateTime                    @default(now()) @map("created_at")
+  updatedAt      DateTime                    @updatedAt @map("updated_at")
+
+  @@index([organizationId, userId, createdAt])
+  @@index([organizationId, status, createdAt])
+  @@map("time_adjustment_requests")
+}
