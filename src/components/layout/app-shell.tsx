@@ -116,7 +116,7 @@ export function AppShell({
                   <TenantBrand
                     organizationName={branding.organizationName}
                     brandDisplayName={branding.brandDisplayName}
-                    brandLogoUrl={branding.brandLogoUrl}
+                    brandLogoUrl={null} // Ocultado a pedido: apenas o nome deve aparecer no app
                     brandPrimaryColor={branding.brandPrimaryColor}
                     brandAccentColor={branding.brandAccentColor}
                     compact

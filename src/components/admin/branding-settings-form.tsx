@@ -4,6 +4,29 @@ import { useRouter } from "next/navigation";
 import { useState, useRef } from "react";
 import { UploadCloud, Loader2, CheckCircle2 } from "lucide-react";
 
+async function compressImage(file: File) {
+  const imageBitmap = await window.createImageBitmap(file);
+  const canvas = document.createElement("canvas");
+  const maxWidth = 800; // Resize logo comfortably
+  const scale = Math.min(1, maxWidth / imageBitmap.width);
+  canvas.width = Math.round(imageBitmap.width * scale);
+  canvas.height = Math.round(imageBitmap.height * scale);
+  const ctx = canvas.getContext("2d");
+  if (!ctx) throw new Error("Canvas context falhou");
+  ctx.drawImage(imageBitmap, 0, 0, canvas.width, canvas.height);
+
+  return new Promise<File>((resolve, reject) => {
+    canvas.toBlob(
+      (blob) => {
+        if (!blob) return reject(new Error("Compression failed"));
+        resolve(new File([blob], file.name, { type: "image/webp" }));
+      },
+      "image/webp",
+      0.8,
+    );
+  });
+}
+
 export function BrandingSettingsForm({
   brandDisplayName,
   brandLogoUrl,
@@ -24,13 +47,14 @@ export function BrandingSettingsForm({
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   async function handleLogoUpload(event: React.ChangeEvent<HTMLInputElement>) {
-    const file = event.target.files?.[0];
-    if (!file) return;
+    const originalFile = event.target.files?.[0];
+    if (!originalFile) return;
 
     try {
       setIsUploadingLogo(true);
       setError(null);
       
+      const file = await compressImage(originalFile);
       const formData = new FormData();
       formData.append("logo", file);
 
