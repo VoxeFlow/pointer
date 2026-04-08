@@ -208,62 +208,96 @@ export function EmployeePanel({
            </p>
         </div>
       ) : previewUrl ? (
-        /* PREVIEW / CONFIRM STATE */
-        <div className="overflow-hidden rounded-[2.2rem] border border-black/5 bg-white shadow-2xl animate-in slide-in-from-bottom-5 duration-500">
-           <div className="relative aspect-[3/4] w-full bg-black">
-              <img src={previewUrl} alt="Preview" className="h-full w-full object-cover" />
-              <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-transparent" />
-              <div className="absolute bottom-6 left-6 right-6 flex items-center justify-between text-white">
-                 <div className="flex flex-col gap-0.5">
-                    <p className="text-[0.65rem] font-bold uppercase tracking-widest opacity-60">Status</p>
-                    <p className="text-sm font-black uppercase tracking-tight">{nextStepLabel}</p>
-                 </div>
-                 <div className="rounded-full bg-brand/20 px-3 py-1 text-[0.6rem] font-bold uppercase tracking-widest text-brand ring-1 ring-brand/30">
-                    Ao Vivo
-                 </div>
+        /* PREVIEW / CONFIRM STATE (ANEXO 2 UI) */
+        <div className="flex flex-col gap-4 animate-in slide-in-from-bottom-4 duration-500">
+           {/* DARK HEADER */}
+           <div className="rounded-[2.2rem] bg-[#111111] p-6 text-white shadow-[0_20px_50px_rgba(0,0,0,0.2)]">
+             <div className="flex items-center justify-between">
+               <p className="text-[0.6rem] font-black uppercase tracking-[0.2em] text-white/50">Status Atual</p>
+               <div className="grid size-8 place-items-center rounded-full bg-white/10 text-brand">
+                 <Clock3 className="size-4" />
+               </div>
+             </div>
+             
+             <h2 className="mt-2 text-xl font-black leading-tight tracking-tight text-white pr-4">
+               {canRecord ? `Aguardando ${nextStepLabel?.toLowerCase()}` : "Relógio Sincronizado"}
+             </h2>
+
+             <div className="mt-8 flex flex-col items-center justify-center rounded-[1.8rem] bg-white/5 py-6 ring-1 ring-white/10">
+               <p className="text-[3.5rem] font-bold leading-none tracking-tighter text-white tabular-nums">
+                 {clockLabel}
+               </p>
+               <p className="mt-2 text-xs font-bold capitalize tracking-wide text-white/60">
+                 {todayLabel}
+               </p>
+             </div>
+
+             <div className="mt-6 flex items-center justify-center gap-2 rounded-xl bg-white/5 py-3 ring-1 ring-white/10">
+               <div className="h-1.5 w-1.5 rounded-full bg-brand animate-pulse" />
+               <p className="text-[0.65rem] font-semibold text-white/50">Horário oficial sincronizado com o servidor</p>
+             </div>
+           </div>
+
+           {/* ERROR ALERT */}
+           {error && (
+             <div className="flex items-center gap-3 rounded-[1.2rem] bg-red-50 p-4 text-red-600 ring-1 ring-red-100 mb-2">
+                <AlertCircle className="size-5 shrink-0" />
+                <p className="text-xs font-bold leading-relaxed">{error}</p>
+             </div>
+           )}
+
+           {/* PHOTO PREVIEW CARD */}
+           <div className="rounded-[2.2rem] bg-white p-4 shadow-xl">
+             <div className="relative overflow-hidden rounded-[1.4rem] aspect-[3/4] bg-[#111]">
+                <img src={previewUrl} alt="Preview" className="h-full w-full object-cover" />
+                <div className="absolute inset-x-0 bottom-0 bg-black/90 px-5 py-4">
+                  <p className="text-xs font-bold text-white tracking-wide">Preview do registro</p>
+                </div>
+             </div>
+
+             <div className="mt-4 flex gap-3">
+                <button
+                   onClick={resetFlow}
+                   disabled={isPending}
+                   className="flex h-14 flex-1 items-center justify-center gap-2 rounded-2xl border border-black/5 text-foreground transition hover:bg-gray-50 active:scale-[0.98] disabled:opacity-50"
+                >
+                   <RotateCcw className="size-4" />
+                   <span className="text-sm font-bold">Refazer</span>
+                </button>
+                <button
+                   onClick={handleSubmit}
+                   disabled={isPending}
+                   className="flex h-14 flex-1 items-center justify-center gap-2 rounded-2xl bg-[#171717] text-white transition hover:bg-black active:scale-[0.98] disabled:opacity-50"
+                >
+                   {isPending ? <LoaderCircle className="size-4 animate-spin" /> : <CheckCircle2 className="size-4" />}
+                   <span className="text-sm font-bold tracking-wide">Confirmar</span>
+                </button>
+             </div>
+           </div>
+
+           {/* LOCATION CARD */}
+           <div className="flex items-center gap-4 rounded-[1.5rem] bg-white p-5 shadow-sm ring-1 ring-black/5">
+              <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-[#faf8f4] text-muted-foreground ring-1 ring-black/5">
+                 <MapPin className="size-5" />
+              </div>
+              <div>
+                 <p className="text-sm font-black text-foreground tracking-tight">Localização Geográfica</p>
+                 <p className="text-[0.65rem] font-bold text-muted-foreground/60">
+                    {locationState === "CAPTURING" ? "Capturando coordenadas GPS..." : locationState === "SUCCESS" ? "Coordenadas capturadas com sucesso." : "Geolocalização pendente ou bloqueada."}
+                 </p>
               </div>
            </div>
 
-           <div className="p-6">
-              {error && (
-                <div className="mb-6 flex items-center gap-3 rounded-[1.2rem] bg-red-50 p-4 text-red-600 ring-1 ring-red-100">
-                   <AlertCircle className="size-5 shrink-0" />
-                   <p className="text-xs font-bold leading-relaxed">{error}</p>
-                </div>
-              )}
-
-              <div className="flex flex-col gap-4">
-                 <button
-                    onClick={handleSubmit}
-                    disabled={isPending}
-                    className="flex h-16 w-full items-center justify-center gap-3 rounded-2xl bg-[#171717] text-white transition hover:bg-black active:scale-[0.98] disabled:opacity-50"
-                 >
-                    {isPending ? <LoaderCircle className="size-6 animate-spin" /> : <CheckCircle2 className="size-6" />}
-                    <span className="text-lg font-black tracking-tight">Confirmar Registro</span>
-                 </button>
-
-                 <button
-                    onClick={resetFlow}
-                    disabled={isPending}
-                    className="flex h-14 w-full items-center justify-center gap-2 rounded-2xl bg-[#fafafa] text-muted-foreground transition hover:bg-gray-100 active:scale-[0.98] disabled:opacity-50"
-                 >
-                    <RotateCcw className="size-4" />
-                    <span className="text-sm font-bold">Tirar outra foto</span>
-                 </button>
+           {/* SCHEDULE CARD */}
+           <div className="flex items-center gap-4 rounded-[1.5rem] bg-white p-5 shadow-sm ring-1 ring-black/5">
+              <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-[#faf8f4] text-muted-foreground ring-1 ring-black/5">
+                 <ShieldCheck className="size-5" />
               </div>
-
-              <div className="mt-8 flex flex-col gap-4 border-t border-black/5 pt-6">
-                 <div className="flex items-center gap-4">
-                    <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-gray-50 text-muted-foreground ring-1 ring-black/5">
-                       <MapPin className="size-5" />
-                    </div>
-                    <div>
-                       <p className="text-[0.6rem] font-bold uppercase tracking-widest text-muted-foreground/50">Localizaçao</p>
-                       <p className="text-xs font-bold text-foreground">
-                          {locationState === "CAPTURING" ? "Capturando coordenadas..." : locationState === "SUCCESS" ? "GPS Sincronizado" : "Aguardando confirmaçao"}
-                       </p>
-                    </div>
-                 </div>
+              <div>
+                 <p className="text-sm font-black text-foreground tracking-tight">Jornada de Trabalho</p>
+                 <p className="text-[0.65rem] font-bold text-muted-foreground/60 leading-tight">
+                    Auditoria de horário, IP local e dispositivo serão registrados para compliance.
+                 </p>
               </div>
            </div>
         </div>
