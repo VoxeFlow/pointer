@@ -1,12 +1,9 @@
 import { db } from "@/lib/db";
+import { getBrasiliaDayBounds } from "@/lib/time";
 
 export const timeRecordRepository = {
   listTodayByUser(userId: string, organizationId: string, date = new Date()) {
-    const start = new Date(date);
-    start.setHours(0, 0, 0, 0);
-
-    const end = new Date(date);
-    end.setHours(23, 59, 59, 999);
+    const { start, end } = getBrasiliaDayBounds(date);
 
     return db.timeRecord.findMany({
       where: {

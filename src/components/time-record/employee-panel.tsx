@@ -94,10 +94,16 @@ export function EmployeePanel({
           resolve(position);
         },
         (err) => {
+          console.warn("Geolocation falhou:", err);
+          let msg = "Não foi possivel capturar sua localizacao.";
+          if (err.code === 1) msg = "Permissao de localização negada pelo navegador/celular.";
+          if (err.code === 2) msg = "Sinal de GPS/Rede indisponível no momento.";
+          if (err.code === 3) msg = "Tempo limite excedido ao buscar sinal GPS.";
+
           setLocationState("ERROR");
-          reject(new Error("Nao foi possivel capturar sua localizacao."));
+          reject(new Error(msg));
         },
-        { enableHighAccuracy: true, timeout: 12000, maximumAge: 0 }
+        { enableHighAccuracy: true, timeout: 30000, maximumAge: 10000 }
       );
     });
   }

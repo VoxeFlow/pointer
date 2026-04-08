@@ -18,6 +18,20 @@ export function getDayRange(date = new Date()) {
   };
 }
 
+export function getBrasiliaDayBounds(date = new Date()) {
+  const brtString = date.toLocaleString("en-US", { timeZone: "America/Sao_Paulo" });
+  const brtDate = new Date(brtString);
+  
+  const yyyy = brtDate.getFullYear();
+  const mm = String(brtDate.getMonth() + 1).padStart(2, '0');
+  const dd = String(brtDate.getDate()).padStart(2, '0');
+
+  const start = new Date(`${yyyy}-${mm}-${dd}T00:00:00.000-03:00`);
+  const end = new Date(`${yyyy}-${mm}-${dd}T23:59:59.999-03:00`);
+  
+  return { start, end };
+}
+
 export function formatDateTime(date: Date) {
   return new Intl.DateTimeFormat("pt-BR", {
     dateStyle: "short",

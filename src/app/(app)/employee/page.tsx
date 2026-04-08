@@ -4,10 +4,12 @@ import { InstallCTA } from "@/components/pwa/install-cta";
 import { EmployeePanel } from "@/components/time-record/employee-panel";
 import { requireRole } from "@/lib/auth/guards";
 import { db } from "@/lib/db";
-import { buildTimelineLabel, formatTime } from "@/lib/time";
+import { buildTimelineLabel, formatTime, getBrasiliaDayBounds } from "@/lib/time";
 
 export default async function EmployeeHomePage() {
   const session = await requireRole("EMPLOYEE");
+
+  const { start, end } = getBrasiliaDayBounds();
 
   const user = await db.user.findUniqueOrThrow({
     where: { id: session.sub },
@@ -21,8 +23,8 @@ export default async function EmployeeHomePage() {
       timeRecords: {
         where: {
           serverTimestamp: {
-            gte: new Date(new Date().setHours(0, 0, 0, 0)),
-            lte: new Date(new Date().setHours(23, 59, 59, 999)),
+            gte: start,
+            lte: end,
           },
         },
         orderBy: { serverTimestamp: "asc" },
