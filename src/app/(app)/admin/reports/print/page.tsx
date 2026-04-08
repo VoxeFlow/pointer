@@ -3,6 +3,7 @@ import { ptBR } from "date-fns/locale";
 
 import { requireRole } from "@/lib/auth/guards";
 import { db } from "@/lib/db";
+import { reportService, fmtTime, fmtMinutes, type DailyRow } from "@/services/report-service";
 
 export default async function PrintableReportPage(props: {
   searchParams: Promise<{ from?: string; to?: string; userId?: string }>;
@@ -29,19 +30,10 @@ export default async function PrintableReportPage(props: {
 
   const userId = searchParams.userId || undefined;
 
-  const records = await db.timeRecord.findMany({
-    where: {
-      organizationId: session.organizationId,
-      userId,
-      serverTimestamp: {
-        gte: fromDate || undefined,
-        lte: toDate || undefined,
-      },
-    },
-    include: {
-      user: true,
-    },
-    orderBy: [{ user: { name: "asc" } }, { serverTimestamp: "asc" }],
+  const rows = await reportService.buildDailyRowsForPrint(session.organizationId, {
+    fromDate,
+    toDate,
+    userId,
   });
 
   let periodText = "Período Completo";
@@ -52,117 +44,135 @@ export default async function PrintableReportPage(props: {
 
   const orgName = organization.brandDisplayName || organization.name;
 
+  // Sum totals
+  const totalWorked = rows.reduce((acc, r) => acc + (r.workedMinutes ?? 0), 0);
+  const totalExtra = rows.reduce((acc, r) => acc + (r.extraMinutes ?? 0), 0);
+
   const printScript = `window.onload = function() { setTimeout(window.print, 500); }`;
-  const printCss = `@media print { @page { margin: 1.5cm; size: A4; } body { -webkit-print-color-adjust: exact; print-color-adjust: exact; background-color: white; } }`;
+  const printCss = `
+    @media print {
+      @page { margin: 1.5cm; size: A4 landscape; }
+      body { -webkit-print-color-adjust: exact; print-color-adjust: exact; background: white; }
+      .no-print { display: none !important; }
+    }
+    table { border-collapse: collapse; width: 100%; }
+    th, td { padding: 4px 6px; font-size: 11px; }
+  `;
 
   return (
-    <div className="mx-auto max-w-[21cm] min-h-[29.7cm] bg-white p-8 font-sans text-black print:p-0 print:m-0 print:border-none border shadow-md">
-      {/* Script to trigger print automatically */}
-      {/* eslint-disable-next-line @next/next/no-before-interactive-script-outside-document */}
+    <div className="bg-white min-h-screen font-sans text-black">
       <script dangerouslySetInnerHTML={{ __html: printScript }} />
+      <style dangerouslySetInnerHTML={{ __html: printCss }} />
 
-      {/* Print Header */}
-      <header className="flex flex-col items-center border-b-2 border-black pb-6 text-center mb-6">
-        {organization.brandLogoUrl && (
-          // eslint-disable-next-line @next/next/no-img-element
-          <img src={organization.brandLogoUrl} alt="Logo" className="h-16 object-contain mb-3" />
-        )}
-        <h1 className="text-2xl font-bold uppercase tracking-widest">{orgName}</h1>
-        <h2 className="text-lg font-semibold mt-1">Espelho Consolidado de Registros de Ponto</h2>
-        <p className="mt-2 text-sm text-gray-600">
-          <strong>Período:</strong> {periodText}{" "}
-          {userId && records.length > 0 && (
-            <span>
-              {" "}
-              &bull; <strong>Funcionário:</strong> {records[0].user.name}
-            </span>
-          )}
-        </p>
-        <p className="text-xs text-gray-400 mt-1">
-          Gerado em: {format(new Date(), "PPpp", { locale: ptBR })}
-        </p>
-      </header>
+      {/* Action bar (hidden on print) */}
+      <div className="no-print flex items-center gap-3 bg-gray-100 border-b px-6 py-3">
+        <button
+          onClick={() => window.print()}
+          className="rounded-lg bg-black px-5 py-2 text-sm font-bold text-white hover:bg-gray-800"
+        >
+          🖨️ Imprimir / Salvar PDF
+        </button>
+        <button
+          onClick={() => window.close()}
+          className="rounded-lg border px-4 py-2 text-sm text-gray-600 hover:bg-gray-50"
+        >
+          Fechar
+        </button>
+        <span className="ml-auto text-xs text-gray-400">Gerado em {format(new Date(), "PPpp", { locale: ptBR })}</span>
+      </div>
 
-      {/* Data Table */}
-      <main>
-        {records.length === 0 ? (
-          <p className="text-center text-gray-500 py-10">
-            Nenhum registro encontrado para estes filtros.
-          </p>
-        ) : (
-          <div className="overflow-x-auto">
-            <table className="w-full text-left text-sm border-collapse">
+      <div className="mx-auto max-w-[297mm] p-8">
+        {/* Company Header */}
+        <header className="mb-6 flex items-start justify-between border-b-2 border-black pb-4">
+          <div className="flex items-center gap-4">
+            {organization.brandLogoUrl && (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img src={organization.brandLogoUrl} alt="Logo" className="h-14 object-contain" />
+            )}
+            <div>
+              <h1 className="text-2xl font-black uppercase tracking-widest">{orgName}</h1>
+              <h2 className="text-base font-semibold text-gray-600">Espelho de Ponto — Registro Consolidado</h2>
+            </div>
+          </div>
+          <div className="text-right text-xs text-gray-500">
+            <p><strong>Período:</strong> {periodText}</p>
+            {userId && rows.length > 0 && (
+              <p><strong>Funcionário:</strong> {rows[0].employeeName}</p>
+            )}
+            <p>Gerado em: {format(new Date(), "dd/MM/yyyy HH:mm")}</p>
+          </div>
+        </header>
+
+        {/* Data Table */}
+        <main>
+          {rows.length === 0 ? (
+            <p className="py-10 text-center text-gray-500">Nenhum registro encontrado para estes filtros.</p>
+          ) : (
+            <table>
               <thead>
-                <tr className="border-b-2 border-black bg-gray-100">
-                  <th className="py-2 px-3 font-bold uppercase text-xs w-[120px]">Data</th>
-                  <th className="py-2 px-3 font-bold uppercase text-xs w-[80px]">Hora</th>
-                  {!userId && (
-                    <th className="py-2 px-3 font-bold uppercase text-xs">Funcionário</th>
-                  )}
-                  <th className="py-2 px-3 font-bold uppercase text-xs w-[100px]">Tipo</th>
-                  <th className="py-2 px-3 font-bold uppercase text-xs">Origem / Status</th>
+                <tr style={{ backgroundColor: "#171717", color: "white" }}>
+                  <th className="text-left rounded-tl-md">Data</th>
+                  {!userId && <th className="text-left">Funcionário</th>}
+                  <th className="text-center">Entrada</th>
+                  <th className="text-center">Saída<br/><span className="font-normal text-[10px] opacity-70">Intervalo</span></th>
+                  <th className="text-center">Entrada<br/><span className="font-normal text-[10px] opacity-70">Intervalo</span></th>
+                  <th className="text-center">Saída</th>
+                  <th className="text-center">Interv.<br/><span className="font-normal text-[10px] opacity-70">(min)</span></th>
+                  <th className="text-center">Trabalhado<br/><span className="font-normal text-[10px] opacity-70">(hh:mm)</span></th>
+                  <th className="text-center">Hora Extra<br/><span className="font-normal text-[10px] opacity-70">(hh:mm)</span></th>
+                  <th className="text-center rounded-tr-md">Status</th>
                 </tr>
               </thead>
               <tbody>
-                {records.map((record, i) => (
+                {rows.map((row: DailyRow, i: number) => (
                   <tr
-                    key={record.id}
-                    className={`border-b border-gray-200 ${i % 2 === 0 ? "bg-white" : "bg-gray-50"}`}
+                    key={`${row.employeeName}-${row.date.toISOString()}`}
+                    style={{ backgroundColor: i % 2 === 0 ? "#fff" : "#f8f8f8", borderBottom: "1px solid #e5e5e5" }}
                   >
-                    <td className="py-2 px-3 whitespace-nowrap">
-                      {format(record.serverTimestamp, "dd/MM/yyyy")}
+                    <td className="whitespace-nowrap font-medium">{format(row.date, "dd/MM/yyyy")}</td>
+                    {!userId && <td className="font-medium">{row.employeeName}</td>}
+                    <td className="text-center font-mono text-green-700 font-bold">{fmtTime(row.entrada)}</td>
+                    <td className="text-center font-mono text-orange-600">{fmtTime(row.saidaIntervalo)}</td>
+                    <td className="text-center font-mono text-blue-600">{fmtTime(row.entradaIntervalo)}</td>
+                    <td className="text-center font-mono text-red-700 font-bold">{fmtTime(row.saida)}</td>
+                    <td className="text-center">{row.breaksMinutes !== null ? `${row.breaksMinutes}min` : "—"}</td>
+                    <td className="text-center font-mono font-bold">{fmtMinutes(row.workedMinutes)}</td>
+                    <td className={`text-center font-mono font-bold ${row.extraMinutes && row.extraMinutes > 0 ? "text-green-700" : "text-gray-400"}`}>
+                      {row.extraMinutes && row.extraMinutes > 0 ? `+${fmtMinutes(row.extraMinutes)}` : "—"}
                     </td>
-                    <td className="py-2 px-3 font-mono font-medium">
-                      {format(record.serverTimestamp, "HH:mm")}
-                    </td>
-                    {!userId && (
-                      <td className="py-2 px-3 font-medium">{record.user.name}</td>
-                    )}
-                    <td className="py-2 px-3">
-                      {record.recordType === "ENTRY" ? (
-                        <span className="font-bold text-green-700">Entrada</span>
-                      ) : (
-                        <span className="font-bold text-red-700">Saída</span>
-                      )}
-                    </td>
-                    <td className="py-2 px-3 text-xs text-gray-600">
-                      <span>
-                        {{ PWA: "Aplicativo", BROWSER: "Navegador", MANUAL: "Manual" }[record.source] ?? record.source}
-                      </span>
-                      {(record.isInconsistent || record.inconsistencyReason) && (
-                        <span className="block text-orange-600 font-medium">
-                          ⚠️ {record.inconsistencyReason || "Inconsistente"}
-                        </span>
-                      )}
+                    <td className={`text-center text-xs font-bold ${row.hasInconsistency ? "text-red-600" : "text-green-700"}`}>
+                      {row.hasInconsistency ? "⚠️" : "✓"}
                     </td>
                   </tr>
                 ))}
               </tbody>
+              {/* Totals row */}
+              <tfoot>
+                <tr style={{ backgroundColor: "#171717", color: "white", fontWeight: "bold" }}>
+                  <td colSpan={!userId ? 7 : 6} className="text-right pr-3 text-xs uppercase tracking-wider opacity-80">Totais do período</td>
+                  <td className="text-center font-mono">{fmtMinutes(totalWorked)}</td>
+                  <td className="text-center font-mono text-green-300">{totalExtra > 0 ? `+${fmtMinutes(totalExtra)}` : "—"}</td>
+                  <td></td>
+                </tr>
+              </tfoot>
             </table>
-          </div>
-        )}
-      </main>
+          )}
+        </main>
 
-      {/* Footer / Assinaturas */}
-      {userId && records.length > 0 && (
-        <footer className="mt-32 pt-8 flex flex-col gap-12 print:break-inside-avoid">
-          <div className="flex gap-16 justify-center text-center text-sm">
-            <div className="flex-1 max-w-[300px] border-t border-black pt-2">
-              <strong>{records[0].user.name}</strong>
-              <br />
+        {/* Signatures (single employee only) */}
+        {userId && rows.length > 0 && (
+          <footer className="mt-24 grid grid-cols-2 gap-16">
+            <div className="border-t border-black pt-2 text-center text-sm">
+              <strong>{rows[0].employeeName}</strong><br />
               <span className="text-gray-500">Funcionário</span>
             </div>
-            <div className="flex-1 max-w-[300px] border-t border-black pt-2">
-              <strong>{orgName}</strong>
-              <br />
+            <div className="border-t border-black pt-2 text-center text-sm">
+              <strong>{orgName}</strong><br />
               <span className="text-gray-500">Responsável RH</span>
             </div>
-          </div>
-        </footer>
-      )}
-
-      {/* Print only CSS helpers */}
-      <style dangerouslySetInnerHTML={{ __html: printCss }} />
+          </footer>
+        )}
+      </div>
     </div>
   );
 }
