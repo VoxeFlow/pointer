@@ -48,7 +48,7 @@ export const reportService = {
         "Longitude",
         "Origem",
         "Inconsistencia",
-      ].join(","),
+      ].join(";"),
       ...records.map((record) =>
         [
           `"${record.user.name}"`,
@@ -59,7 +59,7 @@ export const reportService = {
           record.longitude?.toString() ?? "",
           record.source,
           `"${record.inconsistencyReason ?? ""}"`,
-        ].join(","),
+        ].join(";"),
       ),
     ];
 
@@ -101,7 +101,7 @@ export const reportService = {
     });
 
     const csvLines = [
-      ["Funcionario", "Email", "Tipo", "HorarioServidor", "Latitude", "Longitude", "Origem", "Inconsistencia"].join(","),
+      ["Funcionario", "Email", "Tipo", "HorarioServidor", "Latitude", "Longitude", "Origem", "Inconsistencia"].join(";"),
       ...records.map((record) =>
         [
           `"${record.user.name}"`,
@@ -112,7 +112,7 @@ export const reportService = {
           record.longitude?.toString() ?? "",
           record.source,
           `"${record.inconsistencyReason ?? ""}"`,
-        ].join(","),
+        ].join(";"),
       ),
     ];
 
