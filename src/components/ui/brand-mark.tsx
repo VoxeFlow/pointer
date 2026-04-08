@@ -19,8 +19,8 @@ export function BrandMark({
   priority = false,
 }: BrandMarkProps) {
   const src = mode === "full" ? "/brand/logo-pointer-full.png" : "/brand/logo-simples.png";
-  const width = mode === "full" ? 48 : 48;
-  const height = mode === "full" ? 48 : 48;
+  const width = mode === "full" ? 350 : 48;
+  const height = mode === "full" ? 150 : 48;
 
   const content = (
     <div
@@ -37,7 +37,7 @@ export function BrandMark({
         height={height}
         priority={priority}
         className={cn(
-          "size-10 sm:size-[42px] object-contain",
+          mode === "full" ? "h-6 w-auto sm:h-7" : "size-10 sm:size-[42px] object-contain",
           theme === "light" && mode === "full" ? "brightness-[1.08]" : "",
         )}
       />

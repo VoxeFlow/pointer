@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { type TimeRecord, RecordType } from "@prisma/client";
-import { Camera, Clock3, LoaderCircle, CheckCircle2, RotateCcw, MapPin, ShieldCheck, AlertCircle } from "lucide-react";
+import { Camera, Clock3, LoaderCircle, CheckCircle2, RotateCcw, MapPin, ShieldCheck, AlertCircle, CalendarDays, ChevronUp, ArrowRightCircle, ArrowLeftCircle, Info } from "lucide-react";
 import { formatTime, buildTimelineLabel } from "@/lib/time";
 
 type EmployeePanelProps = {
@@ -319,48 +319,109 @@ export function EmployeePanel({
             </button>
           </div>
 
-          <section className="rounded-[2.2rem] border border-black/5 bg-white p-6 shadow-[0_20px_50px_rgba(0,0,0,0.04)]">
-            <div className="flex items-center justify-between pb-4 border-b border-black/5">
-              <div className="flex items-center gap-3">
-                <div className="grid size-10 place-items-center rounded-2xl bg-brand/5 text-brand">
-                  <Clock3 className="size-5" />
-                </div>
-                <div>
-                  <h2 className="text-sm font-black tracking-tight text-foreground uppercase">Marcações de hoje</h2>
-                  <p className="text-[0.65rem] font-bold text-muted-foreground/60">{timeRecords.length} registro(s) realizados</p>
-                </div>
+          <section className="rounded-[2.2rem] border border-black/5 bg-white shadow-[0_20px_50px_rgba(0,0,0,0.04)]">
+            <div className="flex items-center justify-between p-6 pb-4 border-b border-black/5">
+              <div className="flex items-center gap-2 text-brand font-black text-sm">
+                <CalendarDays className="size-5" />
+                <h2>Marcações de hoje</h2>
               </div>
-              <div className="px-3 py-1 rounded-full bg-emerald-50 text-[0.6rem] font-bold text-emerald-600 uppercase tracking-wider">
-                Sincronizado
-              </div>
+              <ChevronUp className="size-5 text-muted-foreground/40" />
             </div>
 
-            <div className="mt-6 space-y-4">
+            <div className="p-6">
               {timeRecords.length > 0 ? (
-                <div className="relative pl-6 space-y-6 before:absolute before:left-[11px] before:top-2 before:bottom-2 before:w-0.5 before:bg-brand/10">
-                  {timeRecords.map((record) => (
-                    <div key={record.id} className="relative flex items-center justify-between">
-                      {/* Dot */}
-                      <div className="absolute -left-[19.5px] h-2.5 w-2.5 rounded-full border-2 border-white bg-brand shadow-[0_0_0_2px_rgba(var(--brand-rgb,0,0,0),0.1)]" />
-                      
-                      <div>
-                        <p className="text-[0.65rem] font-bold uppercase tracking-wider text-muted-foreground/50">
-                          {buildTimelineLabel(record.recordType)}
-                        </p>
-                        <p className="mt-0.5 text-lg font-black tabular-nums text-foreground">
-                          {formatTime(record.serverTimestamp)}
-                        </p>
+                <div className="space-y-6">
+                  {/* Paired Records UI logic */}
+                  {Array.from({ length: Math.ceil(timeRecords.length / 2) }).map((_, idx) => {
+                    const entry = timeRecords[idx * 2];
+                    const exit = timeRecords[idx * 2 + 1];
+                    const nextEntry = timeRecords[(idx + 1) * 2];
+                    
+                    // Interval occurs between this exit and the next entry
+                    let intervalMinutes = null;
+                    if (exit && nextEntry) {
+                       intervalMinutes = Math.floor((nextEntry.serverTimestamp.getTime() - exit.serverTimestamp.getTime()) / 60000);
+                    }
+
+                    return (
+                      <div key={idx} className="flex flex-col items-center">
+                        <div className="flex w-full items-center justify-center gap-4">
+                          {/* ENTRY BUBBLE */}
+                          <div className="flex items-center gap-2 rounded-full bg-slate-50 px-4 py-2 border border-black/5">
+                            <ArrowRightCircle className="size-4 text-emerald-500" />
+                            <span className="font-bold text-foreground tabular-nums tracking-tight">{formatTime(entry.serverTimestamp)}</span>
+                          </div>
+
+                          <div className="flex-1 border-t-2 border-dashed border-black/5" />
+
+                          {/* EXIT BUBBLE */}
+                          {exit ? (
+                            <div className="flex items-center gap-2 rounded-full bg-slate-50 px-4 py-2 border border-black/5">
+                              <ArrowLeftCircle className="size-4 text-red-500 text-opacity-80" />
+                              <span className="font-bold text-foreground tabular-nums tracking-tight">{formatTime(exit.serverTimestamp)}</span>
+                            </div>
+                          ) : (
+                            <div className="flex items-center gap-2 rounded-full bg-slate-50 px-4 py-2 border border-transparent opacity-50">
+                                <span className="font-semibold text-muted-foreground/50 tracking-tight text-sm">--:--</span>
+                            </div>
+                          )}
+                        </div>
+                        
+                        {/* INTERVAL LABEL */}
+                        {intervalMinutes !== null && (
+                           <div className="relative w-full py-4 flex items-center justify-center">
+                              <div className="absolute inset-y-0 w-px bg-black/5" />
+                              <span className="relative bg-white px-3 text-[0.65rem] font-semibold text-muted-foreground/60 tracking-wider">
+                                Intervalo de {intervalMinutes}min
+                              </span>
+                           </div>
+                        )}
                       </div>
-                      
-                      <div className="flex items-center gap-2 rounded-xl bg-[#faf8f4] px-3 py-2 text-[0.6rem] font-bold text-muted-foreground/70 ring-1 ring-black/5">
-                        <CheckCircle2 className="size-3 text-emerald-500" />
-                        {record.recordType === RecordType.EXIT ? "Finalizado" : "Ok"}
-                      </div>
-                    </div>
-                  ))}
+                    );
+                  })}
+
+                  <div className="mt-8 space-y-4 pt-6 border-t border-black/5">
+                     <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-1.5 text-muted-foreground/70">
+                           <span className="text-xs font-semibold">Total de horas hoje</span>
+                           <Info className="size-3" />
+                        </div>
+                        <span className="text-sm font-black tabular-nums">
+                          {(() => {
+                            let total = 0;
+                            let entryTime = null;
+                            for (const r of timeRecords) {
+                              if (r.recordType === 'ENTRY' || r.recordType === 'BREAK_IN') entryTime = r.serverTimestamp;
+                              if ((r.recordType === 'BREAK_OUT' || r.recordType === 'EXIT') && entryTime) {
+                                total += Math.floor((r.serverTimestamp.getTime() - entryTime.getTime()) / 60000);
+                                entryTime = null;
+                              }
+                            }
+                            return `${Math.floor(total/60)}h ${total%60}min`;
+                          })()}
+                        </span>
+                     </div>
+                     <div className="flex items-center justify-between">
+                        <span className="text-xs font-semibold text-muted-foreground/70">Intervalos</span>
+                        <span className="text-sm font-bold tabular-nums text-foreground/80">
+                          {(() => {
+                            let intervalTotal = 0;
+                            let exitTime = null;
+                            for (const r of timeRecords) {
+                              if (r.recordType === 'BREAK_OUT') exitTime = r.serverTimestamp;
+                              if (r.recordType === 'BREAK_IN' && exitTime) {
+                                intervalTotal += Math.floor((r.serverTimestamp.getTime() - exitTime.getTime()) / 60000);
+                                exitTime = null;
+                              }
+                            }
+                            return intervalTotal > 0 ? `${intervalTotal}min` : '--';
+                          })()}
+                        </span>
+                     </div>
+                  </div>
                 </div>
               ) : (
-                <div className="py-8 text-center">
+                <div className="py-8 text-center bg-slate-50 rounded-2xl">
                   <p className="text-sm font-medium text-muted-foreground/40 italic">Aguardando primeira marcação do dia...</p>
                 </div>
               )}
