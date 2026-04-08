@@ -37,7 +37,7 @@ export function BrandMark({
         height={height}
         priority={priority}
         className={cn(
-          mode === "full" ? "h-6 w-auto sm:h-7" : "size-10 sm:size-[42px] object-contain",
+          mode === "full" ? "w-[120px] sm:w-[140px] h-auto object-contain" : "size-10 sm:size-[42px] object-contain",
           theme === "light" && mode === "full" ? "brightness-[1.08]" : "",
         )}
       />
