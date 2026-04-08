@@ -70,10 +70,21 @@ export function EmployeePanel({
   const [result, setResult] = useState<{ label: string; time: string } | null>(null);
   const [locationState, setLocationState] = useState<"IDLE" | "CAPTURING" | "SUCCESS" | "ERROR">("IDLE");
 
+  const [coords, setCoords] = useState<GeolocationPosition | null>(null);
+
   useEffect(() => {
     const interval = window.setInterval(() => setNow(new Date()), 1000);
     return () => window.clearInterval(interval);
   }, []);
+
+  // Dispara localização imediatamente ao abrir a tela de preview (como era na segunda página)
+  useEffect(() => {
+    if (previewUrl && !coords && locationState === "IDLE") {
+      requestLocation().then(setCoords).catch((err) => {
+        // setError handled inside requestLocation via state
+      });
+    }
+  }, [previewUrl, coords, locationState]);
 
   const todayLabel = useMemo(() => formatLongDate(now), [now]);
   const clockLabel = useMemo(() => formatClock(now), [now]);
@@ -101,6 +112,7 @@ export function EmployeePanel({
           if (err.code === 3) msg = "Tempo limite excedido ao buscar sinal GPS.";
 
           setLocationState("ERROR");
+          setError(msg);
           reject(new Error(msg));
         },
         { enableHighAccuracy: true, timeout: 30000, maximumAge: 10000 }
@@ -119,6 +131,8 @@ export function EmployeePanel({
       setPreviewUrl(URL.createObjectURL(compressed));
       setError(null);
       setResult(null);
+      setLocationState("IDLE");
+      setCoords(null);
     } catch (err) {
       setError("Erro ao processar imagem.");
     } finally {
@@ -129,11 +143,21 @@ export function EmployeePanel({
   async function handleSubmit() {
     if (!selectedFile) return;
     
+    if (locationState === "CAPTURING") {
+       setError("Aguarde a captura da localização antes de confirmar.");
+       return;
+    }
+
+    if (locationState === "ERROR" || !coords) {
+       setError("Não foi possível confirmar. A localização é obrigatória.");
+       return;
+    }
+
     setIsPending(true);
     setError(null);
 
     try {
-      const position = await requestLocation();
+      const position = coords;
       const formData = new FormData();
       formData.append("photo", selectedFile);
       formData.append("latitude", String(position.coords.latitude));
@@ -177,6 +201,7 @@ export function EmployeePanel({
     setError(null);
     setResult(null);
     setLocationState("IDLE");
+    setCoords(null);
   }
 
   function triggerCamera() {
