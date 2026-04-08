@@ -1,7 +1,8 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { useState } from "react";
+import { useState, useRef } from "react";
+import { UploadCloud, Loader2, CheckCircle2 } from "lucide-react";
 
 export function BrandingSettingsForm({
   brandDisplayName,
@@ -17,6 +18,42 @@ export function BrandingSettingsForm({
   const router = useRouter();
   const [pending, setPending] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  const [logoUrl, setLogoUrl] = useState<string | null>(brandLogoUrl);
+  const [isUploadingLogo, setIsUploadingLogo] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  async function handleLogoUpload(event: React.ChangeEvent<HTMLInputElement>) {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    try {
+      setIsUploadingLogo(true);
+      setError(null);
+      
+      const formData = new FormData();
+      formData.append("logo", file);
+
+      const response = await fetch("/api/admin/settings/branding/logo", {
+        method: "POST",
+        body: formData,
+      });
+
+      const data = await response.json();
+      if (!response.ok) {
+         throw new Error(data.error || "Falha ao enviar a logo.");
+      }
+
+      setLogoUrl(data.url);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Falha no envio da logo.");
+    } finally {
+      setIsUploadingLogo(false);
+      if (fileInputRef.current) {
+        fileInputRef.current.value = "";
+      }
+    }
+  }
 
   async function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -46,62 +83,88 @@ export function BrandingSettingsForm({
   }
 
   return (
-    <form className="grid gap-4" onSubmit={handleSubmit}>
-      <div className="grid gap-4 sm:grid-cols-2">
+    <form className="grid gap-6" onSubmit={handleSubmit}>
+      <div className="grid gap-6 sm:grid-cols-2">
         <label className="grid gap-2">
-          <span className="text-sm font-semibold">Nome visual</span>
+          <span className="text-sm font-semibold text-muted-foreground">Nome visual</span>
           <input
             name="brandDisplayName"
             defaultValue={brandDisplayName ?? ""}
             placeholder="Ex.: Pointer ACME"
-            className="rounded-[1rem] border border-border bg-white/85 px-4 py-3"
+            className="rounded-2xl border border-border bg-white/85 px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-brand/50 transition"
           />
         </label>
-        <label className="grid gap-2">
-          <span className="text-sm font-semibold">URL da logo</span>
-          <input
-            name="brandLogoUrl"
-            defaultValue={brandLogoUrl ?? ""}
-            placeholder="https://..."
-            className="rounded-[1rem] border border-border bg-white/85 px-4 py-3"
-          />
-        </label>
+        
+        <div className="grid gap-2">
+          <span className="text-sm font-semibold text-muted-foreground">Logo da Empresa</span>
+          <div className="relative flex items-center justify-between rounded-2xl border border-border bg-white/85 px-4 py-2 transition hover:bg-white text-sm">
+             <input type="hidden" name="brandLogoUrl" value={logoUrl ?? ""} />
+             <input 
+               type="file" 
+               accept="image/png, image/jpeg, image/webp, image/svg+xml" 
+               className="hidden" 
+               ref={fileInputRef}
+               onChange={handleLogoUpload}
+             />
+             
+             <div className="flex items-center gap-3 overflow-hidden">
+                {logoUrl ? (
+                   <img src={logoUrl} alt="Logo" className="h-8 max-w-[100px] object-contain rounded-md" />
+                ) : (
+                   <div className="h-8 flex items-center text-muted-foreground/50 text-xs italic">Nenhuma logo</div>
+                )}
+             </div>
+
+             <button
+                type="button"
+                onClick={() => fileInputRef.current?.click()}
+                disabled={isUploadingLogo || pending}
+                className="flex shrink-0 items-center gap-2 rounded-xl bg-slate-100 px-3 py-1.5 text-xs font-semibold text-muted-foreground hover:bg-slate-200 transition disabled:opacity-50"
+             >
+                {isUploadingLogo ? <Loader2 className="size-3.5 animate-spin" /> : <UploadCloud className="size-3.5" />}
+                {isUploadingLogo ? "Enviando..." : "Alterar Logo"}
+             </button>
+          </div>
+        </div>
       </div>
 
-      <div className="grid gap-4 sm:grid-cols-2">
+      <div className="grid gap-6 sm:grid-cols-2">
         <label className="grid gap-2">
-          <span className="text-sm font-semibold">Cor principal</span>
-          <div className="flex items-center gap-3 rounded-[1rem] border border-border bg-white/85 px-4 py-3">
-            <input name="brandPrimaryColor" type="color" defaultValue={brandPrimaryColor ?? "#171717"} className="size-9 rounded border-0 bg-transparent p-0" />
+          <span className="text-sm font-semibold text-muted-foreground">Cor principal</span>
+          <div className="flex items-center gap-3 rounded-2xl border border-border bg-white/85 px-4 py-3 focus-within:ring-2 focus-within:ring-brand/50 transition">
+            <input name="brandPrimaryColor" type="color" defaultValue={brandPrimaryColor ?? "#171717"} className="size-8 rounded border-0 bg-transparent p-0 cursor-pointer" />
             <input
               name="brandPrimaryColor"
               defaultValue={brandPrimaryColor ?? "#171717"}
-              className="min-w-0 flex-1 bg-transparent outline-none"
+              className="min-w-0 flex-1 bg-transparent outline-none text-sm font-medium"
             />
           </div>
         </label>
         <label className="grid gap-2">
-          <span className="text-sm font-semibold">Cor de destaque</span>
-          <div className="flex items-center gap-3 rounded-[1rem] border border-border bg-white/85 px-4 py-3">
-            <input name="brandAccentColor" type="color" defaultValue={brandAccentColor ?? "#d4ad5b"} className="size-9 rounded border-0 bg-transparent p-0" />
+          <span className="text-sm font-semibold text-muted-foreground">Cor de destaque</span>
+          <div className="flex items-center gap-3 rounded-2xl border border-border bg-white/85 px-4 py-3 focus-within:ring-2 focus-within:ring-brand/50 transition">
+            <input name="brandAccentColor" type="color" defaultValue={brandAccentColor ?? "#d4ad5b"} className="size-8 rounded border-0 bg-transparent p-0 cursor-pointer" />
             <input
               name="brandAccentColor"
               defaultValue={brandAccentColor ?? "#d4ad5b"}
-              className="min-w-0 flex-1 bg-transparent outline-none"
+              className="min-w-0 flex-1 bg-transparent outline-none text-sm font-medium"
             />
           </div>
         </label>
       </div>
 
-      {error ? <p className="rounded-[1rem] bg-danger/10 px-4 py-3 text-sm text-danger">{error}</p> : null}
+      {error ? <p className="rounded-[1rem] bg-red-50 px-4 py-3 text-sm font-medium text-red-600 ring-1 ring-red-100">{error}</p> : null}
 
-      <button
-        type="submit"
-        disabled={pending}
-        className="rounded-[1rem] bg-brand px-4 py-4 font-semibold text-white transition hover:bg-brand-strong disabled:opacity-60"
-      >
-        {pending ? "Salvando..." : "Salvar identidade da organizacao"}
-      </button>
+      <div className="pt-2">
+        <button
+          type="submit"
+          disabled={pending || isUploadingLogo}
+          className="flex items-center gap-2 rounded-2xl bg-[#171717] px-6 py-4 font-bold text-white transition hover:bg-black active:scale-[0.98] disabled:opacity-60"
+        >
+          {pending ? <Loader2 className="size-5 animate-spin" /> : <CheckCircle2 className="size-5" />}
+          Salvar identidade da organizacao
+        </button>
+      </div>
     </form>
   );
 }
