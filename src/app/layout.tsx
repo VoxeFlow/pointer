@@ -16,7 +16,7 @@ const ibmPlexMono = IBM_Plex_Mono({
 });
 
 export const metadata: Metadata = {
-  metadataBase: new URL("https://pointer.local"),
+  metadataBase: new URL("https://pointer.voxeflow.com"),
   title: {
     default: "Pointer",
     template: "%s | Pointer",
