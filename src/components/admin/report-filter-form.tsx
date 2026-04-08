@@ -75,13 +75,23 @@ export function ReportFilterForm({ employees }: ReportFilterFormProps) {
         </div>
       </div>
 
-      <a
-        href={downloadUrl()}
-        className="flex items-center justify-center gap-3 rounded-2xl bg-[#f0eee9] border border-black/10 px-6 py-5 font-bold text-black shadow-sm transition-all hover:bg-white hover:-translate-y-0.5 active:translate-y-0"
-      >
-        <Download className="size-5 text-black" />
-        Gerar e Baixar Relatório CSV
-      </a>
+      <div className="grid gap-3 sm:grid-cols-2">
+        <a
+          href={`/admin/reports/print?from=${fromDate}&to=${toDate}&userId=${selectedUser}`}
+          target="_blank"
+          className="flex items-center justify-center gap-3 rounded-2xl bg-brand px-6 py-4 font-bold text-white shadow-lg shadow-brand/20 transition-all hover:bg-brand-strong hover:-translate-y-0.5 active:translate-y-0 text-center"
+        >
+          Visualizar Espelho (PDF)
+        </a>
+
+        <a
+          href={downloadUrl()}
+          className="flex items-center justify-center gap-3 rounded-2xl bg-[#f0eee9] border border-black/10 px-6 py-4 font-bold text-black shadow-sm transition-all hover:bg-white hover:-translate-y-0.5 active:translate-y-0 text-center"
+        >
+          <Download className="size-5 text-black" />
+          Exportar Planilha Excel
+        </a>
+      </div>
 
       <p className="text-center text-xs text-muted-foreground">
         O arquivo será gerado instantaneamente com base nos critérios acima.

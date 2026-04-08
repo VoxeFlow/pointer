@@ -29,17 +29,17 @@ export async function GET(request: NextRequest) {
     if (isValid(parsed)) toDate = endOfDay(parsed);
   }
 
-  const { csv } = await reportService.buildTimeRecordsReport(session.organizationId, {
+  const { buffer, count } = await reportService.buildTimeRecordsExcel(session.organizationId, {
     fromDate,
     toDate,
     userId,
   });
 
-  const filename = userId ? `pointer-report-user-${userId}.csv` : "pointer-report-all.csv";
+  const filename = userId ? `pointer-report-user-${userId}.xlsx` : "pointer-report-all.xlsx";
 
-  return new NextResponse(csv, {
+  return new NextResponse(buffer, {
     headers: {
-      "Content-Type": "text/csv; charset=utf-8",
+      "Content-Type": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
       "Content-Disposition": `attachment; filename="${filename}"`,
     },
   });
