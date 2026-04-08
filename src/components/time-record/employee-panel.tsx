@@ -390,54 +390,55 @@ export function EmployeePanel({
             <div className="p-6">
               {timeRecords.length > 0 ? (
                 <div className="space-y-6">
-                  {/* Paired Records UI logic */}
-                  {Array.from({ length: Math.ceil(timeRecords.length / 2) }).map((_, idx) => {
-                    const entry = timeRecords[idx * 2];
-                    const exit = timeRecords[idx * 2 + 1];
-                    const nextEntry = timeRecords[(idx + 1) * 2];
-                    
-                    // Interval occurs between this exit and the next entry
-                    let intervalMinutes = null;
-                    if (exit && nextEntry) {
-                       intervalMinutes = Math.floor((nextEntry.serverTimestamp.getTime() - exit.serverTimestamp.getTime()) / 60000);
-                    }
+                  <div className="relative pl-7 space-y-6 before:absolute before:left-[11px] before:top-3 before:bottom-3 before:w-[2px] before:bg-black/5">
+                    {timeRecords.map((record, idx) => {
+                      const isEntry = record.recordType === 'ENTRY' || record.recordType === 'BREAK_IN';
+                      const isExit = record.recordType === 'BREAK_OUT' || record.recordType === 'EXIT';
+                      
+                      let intervalMinutes = null;
+                      if (record.recordType === 'BREAK_OUT' && timeRecords[idx + 1]) {
+                        intervalMinutes = Math.floor((timeRecords[idx + 1].serverTimestamp.getTime() - record.serverTimestamp.getTime()) / 60000);
+                      }
 
-                    return (
-                      <div key={idx} className="flex flex-col items-center">
-                        <div className="flex w-full items-center justify-center gap-4">
-                          {/* ENTRY BUBBLE */}
-                          <div className="flex items-center gap-2 rounded-full bg-slate-50 px-4 py-2 border border-black/5">
-                            <ArrowRightCircle className="size-4 text-emerald-500" />
-                            <span className="font-bold text-foreground tabular-nums tracking-tight">{formatTime(entry.serverTimestamp)}</span>
-                          </div>
-
-                          <div className="flex-1 border-t-2 border-dashed border-black/5" />
-
-                          {/* EXIT BUBBLE */}
-                          {exit ? (
-                            <div className="flex items-center gap-2 rounded-full bg-slate-50 px-4 py-2 border border-black/5">
-                              <ArrowLeftCircle className="size-4 text-red-500 text-opacity-80" />
-                              <span className="font-bold text-foreground tabular-nums tracking-tight">{formatTime(exit.serverTimestamp)}</span>
-                            </div>
-                          ) : (
-                            <div className="flex items-center gap-2 rounded-full bg-slate-50 px-4 py-2 border border-transparent opacity-50">
-                                <span className="font-semibold text-muted-foreground/50 tracking-tight text-sm">--:--</span>
-                            </div>
-                          )}
-                        </div>
-                        
-                        {/* INTERVAL LABEL */}
-                        {intervalMinutes !== null && (
-                           <div className="relative w-full py-4 flex items-center justify-center">
-                              <div className="absolute inset-y-0 w-px bg-black/5" />
-                              <span className="relative bg-white px-3 text-[0.65rem] font-semibold text-muted-foreground/60 tracking-wider">
-                                Intervalo de {intervalMinutes}min
-                              </span>
+                      return (
+                        <div key={record.id} className="relative flex flex-col gap-6">
+                           <div className="flex items-center justify-between">
+                             {/* Icon Marker */}
+                             <div className="absolute -left-[27px] flex h-6 w-6 items-center justify-center rounded-full bg-white ring-4 ring-white">
+                                {isEntry ? (
+                                   <ArrowRightCircle className="size-5 text-emerald-500 shadow-sm rounded-full" />
+                                ) : (
+                                   <ArrowLeftCircle className="size-5 text-red-500 shadow-sm rounded-full opacity-80" />
+                                )}
+                             </div>
+                             
+                             <div>
+                               <p className="text-[0.65rem] font-bold uppercase tracking-wider text-muted-foreground/60">
+                                 {buildTimelineLabel(record.recordType)}
+                               </p>
+                               <p className="mt-0.5 text-xl font-black tabular-nums text-foreground">
+                                 {formatTime(record.serverTimestamp)}
+                               </p>
+                             </div>
+                             
+                             <div className="flex items-center gap-2 rounded-xl bg-slate-50 px-3 py-2 text-[0.65rem] font-bold text-muted-foreground/70 ring-1 ring-black/5 shadow-sm">
+                               <CheckCircle2 className="size-3.5 text-emerald-500" />
+                               {record.recordType === 'EXIT' ? "Finalizado" : "Sincronizado"}
+                             </div>
                            </div>
-                        )}
-                      </div>
-                    );
-                  })}
+
+                           {/* INTERVAL DISPLAY */}
+                           {intervalMinutes !== null && (
+                              <div className="flex items-center relative -ml-1">
+                                 <div className="rounded-full bg-white px-3 py-1.5 border border-black/5 shadow-sm text-[0.65rem] font-bold text-muted-foreground/60 tracking-wider">
+                                    Intervalo de {intervalMinutes} min
+                                 </div>
+                              </div>
+                           )}
+                        </div>
+                      );
+                    })}
+                  </div>
 
                   <div className="mt-8 space-y-4 pt-6 border-t border-black/5">
                      <div className="flex items-center justify-between">

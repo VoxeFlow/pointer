@@ -129,7 +129,9 @@ export function AppShell({
           <div className="flex items-center gap-3">
             <div className="flex flex-col items-end md:flex">
               <span className="max-w-[120px] truncate text-xs font-bold leading-none text-white sm:max-w-none sm:text-sm">{session.name}</span>
-              <span className="text-[0.6rem] font-medium uppercase tracking-wider text-white/40">{session.role}</span>
+              <span className="text-[0.6rem] font-medium uppercase tracking-wider text-white/40">
+                {branding?.brandDisplayName || branding?.organizationName || session.role}
+              </span>
             </div>
 
             <div ref={mobileMenuRef} className="relative">
