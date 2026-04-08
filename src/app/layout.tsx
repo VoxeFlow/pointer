@@ -26,6 +26,7 @@ export const metadata: Metadata = {
   icons: {
     icon: "/brand/logo-simples.png",
     apple: "/brand/logo-simples.png",
+    shortcut: "/brand/logo-simples.png",
   },
   appleWebApp: {
     capable: true,
