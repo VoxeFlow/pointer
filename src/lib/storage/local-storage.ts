@@ -4,14 +4,18 @@ import { randomUUID } from "node:crypto";
 import type { Prisma } from "@prisma/client";
 
 import { env } from "@/lib/env";
-import type { UploadedPhoto } from "@/types/storage";
+import type { UploadedAsset, UploadedPhoto } from "@/types/storage";
 
 type UploadPhotoInput = {
   file: File;
   fileName: string;
 };
 
-export async function uploadPhotoToLocal({ file, fileName }: UploadPhotoInput): Promise<UploadedPhoto> {
+async function uploadFileToLocalDirectory({
+  file,
+  fileName,
+  targetDir,
+}: UploadPhotoInput & { targetDir: string }): Promise<UploadedAsset> {
   // Verificação para evitar falhas silenciosas na Vercel
   if (process.env.VERCEL === "1") {
     throw new Error(
@@ -19,7 +23,7 @@ export async function uploadPhotoToLocal({ file, fileName }: UploadPhotoInput): 
     );
   }
 
-  const folder = path.join(process.cwd(), env.POINTER_STORAGE_LOCAL_DIR);
+  const folder = path.join(process.cwd(), targetDir);
   await mkdir(folder, { recursive: true });
 
   const safeName = `${randomUUID()}-${fileName.replaceAll("/", "-")}`;
@@ -29,11 +33,27 @@ export async function uploadPhotoToLocal({ file, fileName }: UploadPhotoInput): 
   await writeFile(fullPath, Buffer.from(arrayBuffer));
 
   return {
-    url: `/${env.POINTER_STORAGE_LOCAL_DIR.replace(/^public\//, "")}/${safeName}`,
+    url: `/${targetDir.replace(/^public\//, "")}/${safeName}`,
     metadata: {
       size: file.size,
       type: file.type,
       name: file.name,
     } satisfies Prisma.JsonObject,
   };
+}
+
+export async function uploadPhotoToLocal({ file, fileName }: UploadPhotoInput): Promise<UploadedPhoto> {
+  return uploadFileToLocalDirectory({
+    file,
+    fileName,
+    targetDir: env.POINTER_STORAGE_LOCAL_DIR,
+  });
+}
+
+export async function uploadDocumentToLocal({ file, fileName }: UploadPhotoInput): Promise<UploadedAsset> {
+  return uploadFileToLocalDirectory({
+    file,
+    fileName,
+    targetDir: "public/uploads/documents",
+  });
 }

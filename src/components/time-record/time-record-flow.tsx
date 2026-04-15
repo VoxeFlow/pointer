@@ -25,6 +25,8 @@ type ResultState = {
 type SubmitErrorCode =
   | "PHOTO_UPLOAD_FAILED"
   | "GEOLOCATION_REQUIRED"
+  | "WORKSITE_NOT_CONFIGURED"
+  | "OUTSIDE_ALLOWED_AREA"
   | "DAY_OFF_BLOCKED"
   | "PHOTO_REQUIRED"
   | "MAX_RECORDS_REACHED"
@@ -415,4 +417,3 @@ export function TimeRecordFlow({ user }: { user: UserWithContext }) {
     </div>
   );
 }
-

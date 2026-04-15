@@ -2,7 +2,7 @@ import { RecordSource, type User, type WorkSchedule, type WorkScheduleDay } from
 import { headers } from "next/headers";
 
 import { recordTypeLabels } from "@/lib/constants";
-import { reverseGeocode } from "@/lib/geocoding";
+import { calculateDistanceMeters, reverseGeocode } from "@/lib/geocoding";
 import { getNextRecordType } from "@/lib/time";
 import { getDayWorkContext } from "@/lib/schedule";
 import { uploadPhoto } from "@/lib/storage";
@@ -19,6 +19,11 @@ type CreateTimeRecordInput = {
       requirePhoto: boolean;
       requireGeolocation: boolean;
       allowExtraordinaryRecords: boolean;
+      enforceWorksiteRadius: boolean;
+      worksiteAddress: string | null;
+      worksiteLatitude: unknown;
+      worksiteLongitude: unknown;
+      worksiteRadiusMeters: number;
     };
     schedule?: (WorkSchedule & {
       weekdays?: WorkScheduleDay[];
@@ -80,6 +85,48 @@ export const timeRecordService = {
       });
 
       throw new TimeRecordError("GEOLOCATION_REQUIRED", "Ative a localizacao para concluir o registro.");
+    }
+
+    const worksiteLatitude = user.organization.worksiteLatitude == null ? null : Number(user.organization.worksiteLatitude);
+    const worksiteLongitude = user.organization.worksiteLongitude == null ? null : Number(user.organization.worksiteLongitude);
+
+    if (user.organization.enforceWorksiteRadius) {
+      if (worksiteLatitude == null || worksiteLongitude == null) {
+        throw new TimeRecordError(
+          "WORKSITE_NOT_CONFIGURED",
+          "O local permitido para registro ainda nao foi configurado pela empresa.",
+        );
+      }
+
+      if (!hasGeolocation) {
+        throw new TimeRecordError("GEOLOCATION_REQUIRED", "Ative a localizacao para concluir o registro.");
+      }
+
+      const distanceMeters = calculateDistanceMeters(
+        input.latitude!,
+        input.longitude!,
+        worksiteLatitude,
+        worksiteLongitude,
+      );
+
+      if (distanceMeters > user.organization.worksiteRadiusMeters) {
+        await auditLogRepository.create({
+          organizationId: user.organizationId,
+          actorUserId: user.id,
+          action: "time_record_blocked_outside_worksite_radius",
+          targetType: "time_record_attempt",
+          metadataJson: {
+            distanceMeters,
+            allowedRadiusMeters: user.organization.worksiteRadiusMeters,
+            worksiteAddress: user.organization.worksiteAddress,
+          },
+        });
+
+        throw new TimeRecordError(
+          "OUTSIDE_ALLOWED_AREA",
+          `Voce esta fora da area permitida para registrar o ponto. Distancia aproximada: ${distanceMeters} m. Raio permitido: ${user.organization.worksiteRadiusMeters} m.`,
+        );
+      }
     }
 
     const serverTimestamp = new Date();
@@ -165,6 +212,7 @@ export const timeRecordService = {
       metadataJson: {
         type: nextRecordType,
         source: input.source,
+        worksiteRadiusValidated: user.organization.enforceWorksiteRadius,
       },
     });
 
@@ -212,5 +260,82 @@ export const timeRecordService = {
     });
 
     return record;
+  },
+
+  async updateRecordTimestamp(input: {
+    organizationId: string;
+    recordId: string;
+    actorUserId: string;
+    newTimestamp: Date;
+    reason: string;
+  }) {
+    const { organizationId, recordId, actorUserId, newTimestamp, reason } = input;
+
+    const existing = await timeRecordRepository.findById(recordId);
+
+    if (!existing || existing.organizationId !== organizationId) {
+      throw new Error("Registro não encontrado para este funcionário.");
+    }
+
+    if (existing.isDisregarded) {
+      throw new Error("Este registro já foi desconsiderado em um ajuste anterior.");
+    }
+
+    const updatedNote = existing.adjustmentNote
+      ? `${existing.adjustmentNote}\n[${new Date().toISOString()}] ${reason}`
+      : reason;
+
+    const replacement = await timeRecordRepository.create({
+      organizationId,
+      userId: existing.userId,
+      recordType: existing.recordType,
+      serverTimestamp: newTimestamp,
+      clientTimestamp: newTimestamp,
+      photoUrl: existing.photoUrl,
+      latitude: existing.latitude,
+      longitude: existing.longitude,
+      locationAddress: existing.locationAddress,
+      geocodingProvider: existing.geocodingProvider,
+      accuracy: existing.accuracy,
+      geoCapturedAt: existing.geoCapturedAt,
+      source: RecordSource.MANUAL,
+      deviceInfo: existing.deviceInfo
+        ? `${existing.deviceInfo} | Ajuste auditado criado por admin ${actorUserId}`
+        : `Ajuste auditado criado por admin ${actorUserId}`,
+      photoMetadataJson: existing.photoMetadataJson ?? undefined,
+      isInconsistent: existing.isInconsistent,
+      inconsistencyReason: existing.inconsistencyReason,
+      adjustmentNote: `Ajuste auditado do registro ${existing.id}: ${reason}`,
+      supersedesRecordId: existing.id,
+    });
+
+    await timeRecordRepository.update(recordId, {
+      isDisregarded: true,
+      disregardedReason: reason,
+      disregardedAt: new Date(),
+      adjustmentNote: updatedNote,
+      deviceInfo: existing.deviceInfo
+        ? `${existing.deviceInfo} | Registro original desconsiderado por admin ${actorUserId}`
+        : `Registro original desconsiderado por admin ${actorUserId}`,
+    });
+
+    await auditLogRepository.create({
+      organizationId,
+      actorUserId,
+      action: "time_record_manual_replacement",
+      targetType: "time_record",
+      targetId: replacement.id,
+      metadataJson: {
+        originalRecordId: existing.id,
+        replacementRecordId: replacement.id,
+        previousTimestamp: existing.serverTimestamp.toISOString(),
+        newTimestamp: newTimestamp.toISOString(),
+        recordType: existing.recordType,
+        previousSource: existing.source,
+        reason,
+      },
+    });
+
+    return replacement;
   },
 };

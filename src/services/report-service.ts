@@ -1,5 +1,5 @@
 import { endOfMonth, format, startOfMonth, subMonths, differenceInMinutes } from "date-fns";
-import { ptBR } from "date-fns/locale";
+import { formatInTimeZone, fromZonedTime } from "date-fns-tz";
 
 import { db } from "@/lib/db";
 
@@ -14,15 +14,17 @@ type MonthlyReport = {
   csv: string;
 };
 
+const TZ = "America/Sao_Paulo";
+
 // Represents one consolidated day row for a single employee
 export type DailyRow = {
   date: Date;
   employeeName: string;
   employeeEmail: string;
-  entrada: Date | null;         // First ENTRY
-  saidaIntervalo: Date | null;  // First EXIT (lunch out)
-  entradaIntervalo: Date | null;// Second ENTRY (lunch return)
-  saida: Date | null;           // Last EXIT (end of day)
+  entrada: Date | null;         // ENTRY
+  saidaIntervalo: Date | null;  // BREAK_OUT
+  entradaIntervalo: Date | null;// BREAK_IN
+  saida: Date | null;           // EXIT
   breaksMinutes: number | null; // saidaIntervalo -> entradaIntervalo gap
   workedMinutes: number | null; // total worked (excluding break)
   extraMinutes: number | null;  // overtime vs dailyWorkloadMin
@@ -48,7 +50,8 @@ function buildDailyRows(
   const map = new Map<string, typeof records>();
 
   for (const r of records) {
-    const dateKey = format(r.serverTimestamp, "yyyy-MM-dd");
+    // Use Brazil local date for grouping — avoids UTC midnight cross-day issues
+    const dateKey = formatInTimeZone(r.serverTimestamp, "America/Sao_Paulo", "yyyy-MM-dd");
     const key = `${r.userId}__${dateKey}`;
     if (!map.has(key)) map.set(key, []);
     map.get(key)!.push(r);
@@ -60,12 +63,15 @@ function buildDailyRows(
     dayRecords.sort((a, b) => a.serverTimestamp.getTime() - b.serverTimestamp.getTime());
 
     const first = dayRecords[0];
-    const [r0, r1, r2, r3] = dayRecords;
+    const entradaRecord = dayRecords.find((record) => record.recordType === "ENTRY");
+    const saidaIntervaloRecord = dayRecords.find((record) => record.recordType === "BREAK_OUT");
+    const entradaIntervaloRecord = dayRecords.find((record) => record.recordType === "BREAK_IN");
+    const saidaRecord = [...dayRecords].reverse().find((record) => record.recordType === "EXIT");
 
-    const entrada = r0?.recordType === "ENTRY" ? r0.serverTimestamp : null;
-    const saidaIntervalo = r1?.recordType === "EXIT" ? r1.serverTimestamp : null;
-    const entradaIntervalo = r2?.recordType === "ENTRY" ? r2.serverTimestamp : null;
-    const saida = r3?.recordType === "EXIT" ? r3.serverTimestamp : (r1?.recordType === "EXIT" && !r2 ? r1.serverTimestamp : null);
+    const entrada = entradaRecord?.serverTimestamp ?? null;
+    const saidaIntervalo = saidaIntervaloRecord?.serverTimestamp ?? null;
+    const entradaIntervalo = entradaIntervaloRecord?.serverTimestamp ?? null;
+    const saida = saidaRecord?.serverTimestamp ?? null;
 
     // Break: middle EXIT -> middle ENTRY
     const breaksMinutes =
@@ -76,8 +82,9 @@ function buildDailyRows(
     // Worked: (saidaIntervalo - entrada) + (saida - entradaIntervalo)
     let workedMinutes: number | null = null;
     if (entrada && saida) {
-      const totalSpan = differenceInMinutes(saida, entrada);
-      workedMinutes = totalSpan - (breaksMinutes ?? 0);
+      workedMinutes =
+        differenceInMinutes(saida, entrada) -
+        (breaksMinutes ?? 0);
     }
 
     const extraMinutes =
@@ -85,10 +92,21 @@ function buildDailyRows(
         ? workedMinutes - dailyWorkloadMin
         : null;
 
-    const hasInconsistency = dayRecords.some((r) => r.isInconsistent);
+    const sequenceBroken =
+      dayRecords.length > 4 ||
+      (!!saidaIntervalo && !entrada) ||
+      (!!entradaIntervalo && !saidaIntervalo) ||
+      (!!saida && !entrada) ||
+      (!!entrada && !saida && dayRecords.some((record) => record.recordType !== "ENTRY"));
+
+    const hasInconsistency = sequenceBroken || dayRecords.some((r) => r.isInconsistent);
+
+    // Persist the consolidated row date as the start of the local Brazil workday,
+    // then always format it back in the same timezone for CSV/Excel/PDF.
+    const localDateKey = formatInTimeZone(first.serverTimestamp, TZ, "yyyy-MM-dd");
 
     rows.push({
-      date: new Date(format(first.serverTimestamp, "yyyy-MM-dd") + "T00:00:00"),
+      date: fromZonedTime(`${localDateKey}T00:00:00`, TZ),
       employeeName: first.user.name,
       employeeEmail: first.user.email,
       entrada,
@@ -110,7 +128,10 @@ function buildDailyRows(
 }
 
 function fmtTime(d: Date | null): string {
-  return d ? format(d, "HH:mm") : "-";
+  return d ? formatInTimeZone(d, TZ, "HH:mm") : "-";
+}
+function fmtDate(d: Date): string {
+  return formatInTimeZone(d, TZ, "dd/MM/yyyy");
 }
 function fmtMinutes(min: number | null): string {
   if (min === null) return "-";
@@ -130,6 +151,7 @@ export const reportService = {
     const records = await db.timeRecord.findMany({
       where: {
         organizationId,
+        isDisregarded: false,
         serverTimestamp: { gte: from, lte: to },
       },
       include: { user: true },
@@ -164,7 +186,7 @@ export const reportService = {
       csvHeaders,
       ...rows.map((r) =>
         [
-          `"${format(r.date, "dd/MM/yyyy")}"`,
+          `"${fmtDate(r.date)}"`,
           `"${r.employeeName}"`,
           `"${r.employeeEmail}"`,
           fmtTime(r.entrada),
@@ -198,6 +220,7 @@ export const reportService = {
       db.timeRecord.findMany({
         where: {
           organizationId,
+          isDisregarded: false,
           userId: userId || undefined,
           serverTimestamp: {
             gte: fromDate || undefined,
@@ -266,7 +289,7 @@ export const reportService = {
       const r = sheet.getRow(4 + idx);
       r.height = 18;
       r.values = [
-        format(row.date, "dd/MM/yyyy"),
+        fmtDate(row.date),
         row.employeeName,
         fmtTime(row.entrada),
         fmtTime(row.saidaIntervalo),
@@ -321,6 +344,7 @@ export const reportService = {
       db.timeRecord.findMany({
         where: {
           organizationId,
+          isDisregarded: false,
           userId: userId || undefined,
           serverTimestamp: {
             gte: fromDate || undefined,
@@ -340,5 +364,4 @@ export const reportService = {
   },
 };
 
-export { fmtTime, fmtMinutes };
-
+export { fmtTime, fmtDate, fmtMinutes };

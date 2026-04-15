@@ -8,7 +8,7 @@ const secret = new TextEncoder().encode(env.POINTER_SESSION_SECRET);
 
 export type SessionPayload = {
   sub: string;
-  role: "ADMIN" | "EMPLOYEE";
+  role: "ADMIN" | "ACCOUNTANT" | "EMPLOYEE";
   organizationId: string;
   organizationSlug: string;
   name: string;

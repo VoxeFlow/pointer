@@ -1,4 +1,5 @@
 @import "tailwindcss";
+@import "leaflet/dist/leaflet.css";
 
 @theme inline {
   --font-sans: var(--font-plus-jakarta);
@@ -69,4 +70,19 @@ textarea {
 
 .safe-top {
   padding-top: calc(env(safe-area-inset-top) + 1rem);
+}
+
+.pointer-worksite-marker {
+  background: transparent;
+  border: 0;
+}
+
+.pointer-worksite-marker span {
+  display: block;
+  width: 22px;
+  height: 22px;
+  border-radius: 999px;
+  background: var(--brand);
+  border: 4px solid white;
+  box-shadow: 0 10px 22px rgba(21, 21, 21, 0.22);
 }

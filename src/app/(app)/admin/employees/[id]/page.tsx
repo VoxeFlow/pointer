@@ -3,6 +3,7 @@ import { notFound } from "next/navigation";
 
 import { updateEmployeeAction } from "@/app/(app)/admin/employees/actions";
 import { EmployeeForm } from "@/components/admin/employee-form";
+import { EditRecordForm } from "@/components/admin/edit-record-form";
 import { requireRole } from "@/lib/auth/guards";
 import { db } from "@/lib/db";
 import { buildMapUrl, formatLocationLabel } from "@/lib/geocoding";
@@ -18,11 +19,11 @@ export default async function AdminEmployeeDetailPage({
   searchParams,
 }: {
   params: Promise<{ id: string }>;
-  searchParams: Promise<{ saved?: string; created?: string; manual_created?: string; error?: string }>;
+  searchParams: Promise<{ saved?: string; created?: string; manual_created?: string; record_updated?: string; error?: string }>;
 }) {
   const session = await requireRole("ADMIN");
   const { id } = await params;
-  const { saved, created, manual_created, error } = await searchParams;
+  const { saved, created, manual_created, record_updated, error } = await searchParams;
   const [employee, organization] = await Promise.all([
     db.user.findFirst({
       where: { id, organizationId: session.organizationId, role: "EMPLOYEE" },
@@ -45,6 +46,18 @@ export default async function AdminEmployeeDetailPage({
 
   if (!employee) {
     notFound();
+  }
+
+  function formatLocalDateInput(date: Date) {
+    const parts = new Intl.DateTimeFormat("en-CA", {
+      year: "numeric",
+      month: "2-digit",
+      day: "2-digit",
+      timeZone: "America/Sao_Paulo",
+    }).formatToParts(date);
+
+    const map = Object.fromEntries(parts.filter((part) => part.type !== "literal").map((part) => [part.type, part.value]));
+    return `${map.year}-${map.month}-${map.day}`;
   }
 
   return (
@@ -80,9 +93,13 @@ export default async function AdminEmployeeDetailPage({
             feedback={
               error ? (
                 <p className="rounded-[1rem] bg-danger/10 px-4 py-3 text-sm text-danger">{error}</p>
-              ) : saved || created ? (
+              ) : saved || created || record_updated ? (
                 <p className="rounded-[1rem] bg-emerald-50 px-4 py-3 text-sm text-emerald-700">
-                  {created ? "Funcionario cadastrado com sucesso." : "Alteracoes salvas com sucesso."}
+                  {created
+                    ? "Funcionario cadastrado com sucesso."
+                    : record_updated
+                    ? "Ajuste auditado criado com sucesso e marcação original preservada."
+                    : "Alteracoes salvas com sucesso."}
                 </p>
               ) : null
             }
@@ -132,8 +149,11 @@ export default async function AdminEmployeeDetailPage({
 
                 <div className="flex flex-col items-end gap-2">
                   {record.source === "MANUAL" && (
-                    <span className="rounded-full bg-brand/10 px-3 py-1 text-xs font-bold text-brand">MANUAL</span>
+                    <span className="rounded-full bg-brand/10 px-3 py-1 text-xs font-bold text-brand">AJUSTE AUDITADO</span>
                   )}
+                  {record.isDisregarded ? (
+                    <span className="rounded-full bg-red-50 px-3 py-1 text-xs font-bold text-red-700">DESCONSIDERADO</span>
+                  ) : null}
                   {record.photoUrl ? (
                     <Image src={record.photoUrl} alt="Foto do registro" width={80} height={80} className="rounded-2xl object-cover" />
                   ) : null}
@@ -142,10 +162,31 @@ export default async function AdminEmployeeDetailPage({
 
               {record.adjustmentNote && (
                 <div className="mt-4 border-t border-dashed border-white/20 pt-4">
-                  <p className="text-xs font-semibold uppercase tracking-wider text-muted">Motivo do Ajuste</p>
+                  <p className="text-xs font-semibold uppercase tracking-wider text-muted">Observação / Motivo</p>
                   <p className="mt-1 text-sm">{record.adjustmentNote}</p>
                 </div>
               )}
+
+              {record.isDisregarded && record.disregardedReason ? (
+                <div className="mt-4 rounded-[1rem] bg-red-50 px-4 py-3 text-sm text-red-700">
+                  Registro original desconsiderado em ajuste auditado: {record.disregardedReason}
+                </div>
+              ) : null}
+
+              {!record.isDisregarded ? (
+                <EditRecordForm
+                  employeeId={employee.id}
+                  recordId={record.id}
+                  defaultDate={formatLocalDateInput(record.serverTimestamp)}
+                  defaultTime={new Intl.DateTimeFormat("en-GB", {
+                    hour: "2-digit",
+                    minute: "2-digit",
+                    hour12: false,
+                    timeZone: "America/Sao_Paulo",
+                  }).format(record.serverTimestamp)}
+                  isManual={record.source === "MANUAL"}
+                />
+              ) : null}
             </article>
         ))}
       </section>

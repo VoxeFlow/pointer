@@ -434,6 +434,7 @@ npx prisma studio
 npm run prisma:generate
 npm run prisma:migrate
 npm run prisma:seed
+npm run push-cron:deploy
 ```
 
 ## Deploy isolado
@@ -538,6 +539,63 @@ Agendamento atual:
 - `0 11 1 * *`
 - envia no dia 1 as 11:00 UTC
 - em `America/Sao_Paulo`, isso corresponde a 08:00
+
+## Lembretes push com app fechado
+
+O Pointer ja possui Web Push no app e endpoint proprio para envio de lembretes:
+
+- `GET /api/cron/push-reminders`
+
+Como a Vercel Hobby nao permite cron frequente, o caminho gratuito recomendado e um Worker isolado no Cloudflare com Cron Trigger.
+
+Arquivos:
+
+- [index.ts](/Users/jeffersonreis/Documents/Pointer/cloudflare/push-reminders-cron/src/index.ts)
+- [wrangler.toml.example](/Users/jeffersonreis/Documents/Pointer/cloudflare/push-reminders-cron/wrangler.toml.example)
+- [README.md](/Users/jeffersonreis/Documents/Pointer/cloudflare/push-reminders-cron/README.md)
+
+Passos:
+
+1. Copie o arquivo de configuracao:
+
+```bash
+cp cloudflare/push-reminders-cron/wrangler.toml.example cloudflare/push-reminders-cron/wrangler.toml
+```
+
+2. Faça login no Cloudflare:
+
+```bash
+npx wrangler login
+```
+
+3. Grave o secret do Worker:
+
+```bash
+npx wrangler secret put CRON_SECRET --config cloudflare/push-reminders-cron/wrangler.toml
+```
+
+Use exatamente o mesmo valor configurado em `CRON_SECRET` ou `POINTER_CRON_SECRET` no app publicado do Pointer.
+
+4. Publique:
+
+```bash
+npm run push-cron:deploy
+```
+
+5. Se quiser acompanhar logs:
+
+```bash
+npm run push-cron:tail
+```
+
+Variavel publica do Worker:
+
+- `POINTER_APP_URL=https://pointer.voxeflow.com`
+
+Observacoes:
+
+- mantenha esse Worker separado de qualquer outro recurso do Cloudflare
+- iPhone so recebe push com o app fechado se o Pointer estiver instalado na Tela de Inicio
 
 ## Seguranca aplicada
 

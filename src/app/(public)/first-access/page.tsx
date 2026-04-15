@@ -5,6 +5,12 @@ import { BrandMark } from "@/components/ui/brand-mark";
 import { requireSession } from "@/lib/auth/guards";
 import { passwordResetService } from "@/services/password-reset-service";
 
+function getDefaultAppPath(role: "ADMIN" | "ACCOUNTANT" | "EMPLOYEE") {
+  if (role === "ADMIN") return "/admin";
+  if (role === "ACCOUNTANT") return "/admin/accounting";
+  return "/employee";
+}
+
 export default async function FirstAccessPage({
   searchParams,
 }: {
@@ -15,7 +21,7 @@ export default async function FirstAccessPage({
   const error = params.error ? decodeURIComponent(params.error) : null;
 
   if (!session.mustChangePassword) {
-    redirect(session.role === "ADMIN" ? "/admin" : "/employee");
+    redirect(getDefaultAppPath(session.role));
   }
 
   async function completeFirstAccess(formData: FormData) {
@@ -33,7 +39,7 @@ export default async function FirstAccessPage({
     }
 
     await passwordResetService.completeFirstAccess(session.sub, password);
-    redirect(session.role === "ADMIN" ? "/admin" : "/employee");
+    redirect(getDefaultAppPath(session.role));
   }
 
   return (

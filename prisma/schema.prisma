@@ -9,6 +9,7 @@ datasource db {
 
 enum UserRole {
   ADMIN
+  ACCOUNTANT
   EMPLOYEE
 }
 
@@ -64,6 +65,18 @@ enum TimeAdjustmentRequestStatus {
   REJECTED
 }
 
+enum MedicalCertificateStatus {
+  SUBMITTED
+  REVIEWED
+  ACCEPTED
+  REJECTED
+}
+
+enum PayslipStatus {
+  DRAFT
+  PUBLISHED
+}
+
 enum Weekday {
   MONDAY
   TUESDAY
@@ -98,6 +111,12 @@ model Organization {
   requireGeolocation        Boolean      @default(true) @map("require_geolocation")
   allowGalleryFallback      Boolean      @default(false) @map("allow_gallery_fallback")
   allowExtraordinaryRecords Boolean      @default(false) @map("allow_extraordinary_records")
+  enforceWorksiteRadius     Boolean      @default(false) @map("enforce_worksite_radius")
+  worksiteAddress           String?      @map("worksite_address")
+  worksiteLatitude          Decimal?     @map("worksite_latitude") @db.Decimal(10, 7)
+  worksiteLongitude         Decimal?     @map("worksite_longitude") @db.Decimal(10, 7)
+  worksiteRadiusMeters      Int          @default(150) @map("worksite_radius_meters")
+  worksiteGeocodingProvider String?      @map("worksite_geocoding_provider")
   accountantReportEmail     String?      @map("accountant_report_email")
   monthlyReportEnabled      Boolean      @default(false) @map("monthly_report_enabled")
   lastMonthlyReportSentAt   DateTime?    @map("last_monthly_report_sent_at")
@@ -112,6 +131,10 @@ model Organization {
   upgradeRequests           UpgradeRequest[]
   billingEvents             BillingEvent[]
   timeAdjustmentRequests    TimeAdjustmentRequest[]
+  medicalCertificates       MedicalCertificate[]
+  payslips                  Payslip[]
+  pushSubscriptions         PushSubscription[]
+  pushReminderDeliveries    PushReminderDelivery[]
   users                     User[]
   timeRecords               TimeRecord[]
   auditLogs                 AuditLog[]
@@ -128,6 +151,12 @@ model User {
   email          String       @unique
   passwordHash   String       @map("password_hash")
   mustChangePassword Boolean  @default(false) @map("must_change_password")
+  deviceConsentAcceptedAt DateTime? @map("device_consent_accepted_at")
+  deviceConsentRevokedAt  DateTime? @map("device_consent_revoked_at")
+  deviceConsentVersion    String?   @map("device_consent_version")
+  imageConsentAcceptedAt  DateTime? @map("image_consent_accepted_at")
+  imageConsentRevokedAt   DateTime? @map("image_consent_revoked_at")
+  imageConsentVersion     String?   @map("image_consent_version")
   role           UserRole
   employeeCode   String?      @map("employee_code")
   isActive       Boolean      @default(true) @map("is_active")
@@ -138,6 +167,17 @@ model User {
   upgradeRequests UpgradeRequest[] @relation("UpgradeRequester")
   timeAdjustmentRequests TimeAdjustmentRequest[] @relation("AdjustmentRequester")
   reviewedAdjustmentRequests TimeAdjustmentRequest[] @relation("AdjustmentReviewer")
+  submittedMedicalCertificates MedicalCertificate[] @relation("MedicalCertificateOwner")
+  reviewedMedicalCertificates  MedicalCertificate[] @relation("MedicalCertificateReviewer")
+  payslips                     Payslip[]
+  payrollProfilePosition       String?      @map("payroll_profile_position")
+  payrollBaseSalary            Decimal?     @map("payroll_base_salary") @db.Decimal(12, 2)
+  payrollBenefitsAmount        Decimal?     @map("payroll_benefits_amount") @db.Decimal(12, 2)
+  payrollDiscountsAmount       Decimal?     @map("payroll_discounts_amount") @db.Decimal(12, 2)
+  payrollEarningsTemplateJson  Json?        @map("payroll_earnings_template_json")
+  payrollDeductionsTemplateJson Json?       @map("payroll_deductions_template_json")
+  pushSubscriptions PushSubscription[]
+  pushReminderDeliveries PushReminderDelivery[]
   createdAt      DateTime     @default(now()) @map("created_at")
   updatedAt      DateTime     @updatedAt @map("updated_at")
 
@@ -165,6 +205,10 @@ model TimeRecord {
   isInconsistent      Boolean       @default(false) @map("is_inconsistent")
   inconsistencyReason String?       @map("inconsistency_reason")
   adjustmentNote      String?       @map("adjustment_note")
+  isDisregarded       Boolean       @default(false) @map("is_disregarded")
+  disregardedReason   String?       @map("disregarded_reason")
+  disregardedAt       DateTime?     @map("disregarded_at")
+  supersedesRecordId  String?       @map("supersedes_record_id")
   organization        Organization  @relation(fields: [organizationId], references: [id], onDelete: Cascade)
   user                User          @relation(fields: [userId], references: [id], onDelete: Cascade)
   createdAt           DateTime      @default(now()) @map("created_at")
@@ -225,6 +269,43 @@ model AuditLog {
   @@map("audit_logs")
 }
 
+model PushSubscription {
+  id             String       @id @default(cuid())
+  organizationId String       @map("organization_id")
+  userId         String       @map("user_id")
+  endpoint       String       @unique
+  p256dh         String
+  auth           String
+  userAgent      String?      @map("user_agent")
+  isActive       Boolean      @default(true) @map("is_active")
+  lastSeenAt     DateTime?    @map("last_seen_at")
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  user           User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  deliveries     PushReminderDelivery[]
+  createdAt      DateTime     @default(now()) @map("created_at")
+  updatedAt      DateTime     @updatedAt @map("updated_at")
+
+  @@index([organizationId, userId, isActive])
+  @@map("push_subscriptions")
+}
+
+model PushReminderDelivery {
+  id             String           @id @default(cuid())
+  organizationId String           @map("organization_id")
+  userId         String           @map("user_id")
+  subscriptionId String           @map("subscription_id")
+  issueCode      String           @map("issue_code")
+  issueDateKey   String           @map("issue_date_key")
+  sentAt         DateTime         @default(now()) @map("sent_at")
+  organization   Organization     @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  user           User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+  subscription   PushSubscription @relation(fields: [subscriptionId], references: [id], onDelete: Cascade)
+
+  @@unique([subscriptionId, issueCode, issueDateKey])
+  @@index([organizationId, userId, sentAt])
+  @@map("push_reminder_deliveries")
+}
+
 model UpgradeRequest {
   id             String               @id @default(cuid())
   organizationId String               @map("organization_id")
@@ -276,4 +357,61 @@ model TimeAdjustmentRequest {
   @@index([organizationId, userId, createdAt])
   @@index([organizationId, status, createdAt])
   @@map("time_adjustment_requests")
+}
+
+model MedicalCertificate {
+  id               String                   @id @default(cuid())
+  organizationId   String                   @map("organization_id")
+  userId           String                   @map("user_id")
+  reviewedById     String?                  @map("reviewed_by_id")
+  issueDate        DateTime?                @map("issue_date")
+  startDate        DateTime?                @map("start_date")
+  endDate          DateTime?                @map("end_date")
+  notes            String?
+  fileUrl          String                   @map("file_url")
+  originalFileName String                   @map("original_file_name")
+  mimeType         String                   @map("mime_type")
+  sizeBytes        Int                      @map("size_bytes")
+  status           MedicalCertificateStatus @default(SUBMITTED)
+  reviewNote       String?                  @map("review_note")
+  organization     Organization             @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  user             User                     @relation("MedicalCertificateOwner", fields: [userId], references: [id], onDelete: Cascade)
+  reviewedBy       User?                    @relation("MedicalCertificateReviewer", fields: [reviewedById], references: [id], onDelete: SetNull)
+  createdAt        DateTime                 @default(now()) @map("created_at")
+  updatedAt        DateTime                 @updatedAt @map("updated_at")
+
+  @@index([organizationId, userId, createdAt])
+  @@index([organizationId, status, createdAt])
+  @@map("medical_certificates")
+}
+
+model Payslip {
+  id               String         @id @default(cuid())
+  organizationId   String         @map("organization_id")
+  userId           String         @map("user_id")
+  competenceMonth  Int            @map("competence_month")
+  competenceYear   Int            @map("competence_year")
+  referenceLabel   String         @map("reference_label")
+  fileUrl          String?        @map("file_url")
+  originalFileName String?        @map("original_file_name")
+  mimeType         String?        @map("mime_type")
+  sizeBytes        Int?           @map("size_bytes")
+  grossAmount      Decimal?       @map("gross_amount") @db.Decimal(12, 2)
+  benefitsAmount   Decimal?       @map("benefits_amount") @db.Decimal(12, 2)
+  discountsAmount  Decimal?       @map("discounts_amount") @db.Decimal(12, 2)
+  netAmount        Decimal?       @map("net_amount") @db.Decimal(12, 2)
+  earningsBreakdownJson Json?     @map("earnings_breakdown_json")
+  deductionsBreakdownJson Json?   @map("deductions_breakdown_json")
+  notes            String?
+  status           PayslipStatus  @default(DRAFT)
+  publishedAt      DateTime?      @map("published_at")
+  organization     Organization   @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  user             User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+  createdAt        DateTime       @default(now()) @map("created_at")
+  updatedAt        DateTime       @updatedAt @map("updated_at")
+
+  @@unique([organizationId, userId, competenceMonth, competenceYear])
+  @@index([organizationId, competenceYear, competenceMonth])
+  @@index([organizationId, userId, publishedAt])
+  @@map("payslips")
 }

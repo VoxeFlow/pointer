@@ -3,6 +3,7 @@ export const RECORD_SEQUENCE = ["ENTRY", "BREAK_OUT", "BREAK_IN", "EXIT"] as con
 
 export const roleLabels = {
   ADMIN: "Administrador",
+  ACCOUNTANT: "Contador",
   EMPLOYEE: "Funcionario",
 };
 

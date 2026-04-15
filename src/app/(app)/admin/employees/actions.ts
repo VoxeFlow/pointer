@@ -2,6 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
+import { fromZonedTime } from "date-fns-tz";
 
 import { requireRole } from "@/lib/auth/guards";
 import { orderedWeekdays, type WeekdayValue } from "@/lib/schedule";
@@ -9,6 +10,8 @@ import { adminUserService } from "@/services/admin-user-service";
 import { createEmployeeSchema, updateEmployeeSchema } from "@/validations/admin-user";
 import { timeRecordService } from "@/services/time-record-service";
 import type { RecordType } from "@prisma/client";
+
+const BRAZIL_TIMEZONE = "America/Sao_Paulo";
 
 function parseTimeToMinutes(value: string | null) {
   if (!value || !/^\d{2}:\d{2}$/.test(value)) {
@@ -130,7 +133,7 @@ export async function createManualRecordAction(employeeId: string, _: unknown, f
       throw new Error("Preencha todos os campos para o ajuste manual.");
     }
 
-    const timestamp = new Date(`${date}T${time}:00`);
+    const timestamp = fromZonedTime(`${date}T${time}:00`, BRAZIL_TIMEZONE);
 
     await timeRecordService.createManualRecord({
       organizationId: session.organizationId,
@@ -148,6 +151,46 @@ export async function createManualRecordAction(employeeId: string, _: unknown, f
     redirect(destination);
   } catch (error) {
     const message = error instanceof Error ? error.message : "Nao foi possivel criar o registro manual.";
+    if (message === "NEXT_REDIRECT") {
+      throw error;
+    }
+    redirect(`/admin/employees/${employeeId}?error=${encodeURIComponent(message)}`);
+  }
+}
+
+export async function updateRecordTimestampAction(
+  employeeId: string,
+  recordId: string,
+  _: unknown,
+  formData: FormData,
+) {
+  const session = await requireRole("ADMIN");
+
+  try {
+    const date = String(formData.get("date") ?? "");
+    const time = String(formData.get("time") ?? "");
+    const reason = String(formData.get("reason") ?? "");
+
+    if (!date || !time || !reason) {
+      throw new Error("Preencha data, hora e motivo para atualizar o registro.");
+    }
+
+    const timestamp = fromZonedTime(`${date}T${time}:00`, BRAZIL_TIMEZONE);
+
+    await timeRecordService.updateRecordTimestamp({
+      organizationId: session.organizationId,
+      recordId,
+      actorUserId: session.sub,
+      newTimestamp: timestamp,
+      reason,
+    });
+
+    revalidatePath(`/admin/employees/${employeeId}`);
+    revalidatePath("/admin/records");
+    revalidatePath("/admin/reports");
+    redirect(`/admin/employees/${employeeId}?record_updated=1`);
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "Nao foi possivel criar o ajuste auditado do registro.";
     if (message === "NEXT_REDIRECT") {
       throw error;
     }

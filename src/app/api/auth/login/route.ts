@@ -4,6 +4,18 @@ import { authService } from "@/services/auth-service";
 import { assertRateLimit } from "@/lib/rate-limit";
 import { loginSchema } from "@/validations/auth";
 
+function getPostLoginPath(role: "ADMIN" | "ACCOUNTANT" | "EMPLOYEE", tenantSlug?: string) {
+  if (tenantSlug) {
+    if (role === "ADMIN") return `/t/${tenantSlug}/admin`;
+    if (role === "ACCOUNTANT") return `/t/${tenantSlug}/admin/accounting`;
+    return `/t/${tenantSlug}/employee`;
+  }
+
+  if (role === "ADMIN") return "/admin";
+  if (role === "ACCOUNTANT") return "/admin/accounting";
+  return "/employee";
+}
+
 export async function POST(request: Request) {
   try {
     const payload = loginSchema.parse(await request.json());
@@ -13,11 +25,7 @@ export async function POST(request: Request) {
 
     return NextResponse.json({
       success: true,
-      redirectTo: payload.tenantSlug
-        ? `/t/${payload.tenantSlug}/${user.role === "ADMIN" ? "admin" : "employee"}`
-        : user.role === "ADMIN"
-          ? "/admin"
-          : "/employee",
+      redirectTo: getPostLoginPath(user.role, payload.tenantSlug),
     });
   } catch (error) {
     return NextResponse.json(

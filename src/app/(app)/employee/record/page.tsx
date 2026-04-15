@@ -15,6 +15,7 @@ export default async function RecordPage() {
       },
       timeRecords: {
         where: {
+          isDisregarded: false,
           serverTimestamp: {
             gte: new Date(new Date().setHours(0, 0, 0, 0)),
             lte: new Date(new Date().setHours(23, 59, 59, 999)),

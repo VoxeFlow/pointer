@@ -1,10 +1,10 @@
 import { ReportFilterForm } from "@/components/admin/report-filter-form";
-import { requireRole } from "@/lib/auth/guards";
+import { requireRoles } from "@/lib/auth/guards";
 import { db } from "@/lib/db";
 import { FileBarChart, History } from "lucide-react";
 
 export default async function AdminReportsPage() {
-  const session = await requireRole("ADMIN");
+  const session = await requireRoles(["ADMIN", "ACCOUNTANT"]);
   const employees = await db.user.findMany({
     where: { organizationId: session.organizationId, role: "EMPLOYEE" },
     select: { id: true, name: true },

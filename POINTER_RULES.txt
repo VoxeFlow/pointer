@@ -1,0 +1,14 @@
+Regras do projeto Pointer:
+
+- fazer a menor alteração possível
+- não refatorar partes não relacionadas
+- não duplicar lógica existente
+- reutilizar componentes, hooks, estados e serviços antes de criar novos
+- preservar comportamento atual fora do escopo
+- não renomear arquivos, funções ou componentes sem necessidade
+- não mover arquivos sem necessidade
+- não criar fluxo novo se o fluxo atual puder ser reaproveitado
+- evitar redesign de interface sem pedido explícito
+- priorizar mudanças pontuais, conservadoras e compatíveis com a estrutura atual
+- antes de criar algo novo, localizar se já existe componente, estado, hook, serviço ou lógica equivalente
+- se a task envolver folhas de pagamento, funcionários, perfil financeiro ou publicação, preservar a coerência do fluxo atual

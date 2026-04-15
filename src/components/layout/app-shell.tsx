@@ -3,11 +3,9 @@
 import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { BriefcaseBusiness, Clock3, LayoutDashboard, ListChecks, Menu, Settings, Users, X } from "lucide-react";
+import { AlertTriangle, BriefcaseBusiness, Clock3, LayoutDashboard, ListChecks, Menu, Settings, Users, X } from "lucide-react";
 
 import { BrandMark } from "@/components/ui/brand-mark";
-import { TenantBrand } from "@/components/ui/tenant-brand";
-import { getInitials } from "@/lib/utils";
 import type { SessionPayload } from "@/lib/auth/session";
 import type { TenantBranding } from "@/lib/branding";
 
@@ -15,6 +13,8 @@ const employeeLinks = [
   { href: "/employee", label: "Ponto", icon: Clock3 },
   { href: "/employee/workday", label: "Jornada", icon: BriefcaseBusiness },
   { href: "/employee/history", label: "Marcacoes", icon: ListChecks },
+  { href: "/employee/certificates", label: "Atestados", icon: AlertTriangle },
+  { href: "/employee/payslips", label: "Contracheque", icon: BriefcaseBusiness },
   { href: "/employee/help", label: "Mais", icon: Settings },
 ];
 
@@ -22,8 +22,14 @@ const adminLinks = [
   { href: "/admin", label: "Dashboard", icon: LayoutDashboard },
   { href: "/admin/employees", label: "Funcionarios", icon: Users },
   { href: "/admin/records", label: "Registros", icon: ListChecks },
+  { href: "/admin/failures", label: "Falhas", icon: AlertTriangle },
   { href: "/admin/reports", label: "Relatorios", icon: BriefcaseBusiness },
+  { href: "/admin/accounting", label: "Contador", icon: BriefcaseBusiness },
   { href: "/admin/settings", label: "Configuracoes", icon: Settings },
+];
+
+const accountantLinks = [
+  { href: "/admin/accounting", label: "Contador", icon: BriefcaseBusiness },
 ];
 
 export function AppShell({
@@ -44,14 +50,15 @@ export function AppShell({
   const pathname = usePathname();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const mobileMenuRef = useRef<HTMLDivElement | null>(null);
-  const links = (session.role === "ADMIN" ? adminLinks : employeeLinks).map((link) => ({
+  const baseLinks =
+    session.role === "ADMIN" ? adminLinks : session.role === "ACCOUNTANT" ? accountantLinks : employeeLinks;
+  const links = baseLinks.map((link) => ({
     ...link,
     href: `${basePath}${link.href}`,
   }));
-  const tenantEntryHref = `/t/${session.organizationSlug}`;
   const needsBillingAttention =
     billingStatus === "PAST_DUE" || billingStatus === "UNPAID" || billingStatus === "CANCELED" || billingStatus === "INCOMPLETE";
-  const showAdminAlert = session.role === "ADMIN" && (organizationStatus === "SUSPENDED" || needsBillingAttention);
+  const showAdminAlert = (session.role === "ADMIN" || session.role === "ACCOUNTANT") && (organizationStatus === "SUSPENDED" || needsBillingAttention);
   const adminSettingsHref = `${basePath}/admin/settings`;
 
   function isActiveLink(href: string) {
@@ -86,51 +93,20 @@ export function AppShell({
   }, [mobileMenuOpen]);
 
   return (
-    <div className="min-h-screen bg-[#111111] text-white">
+    <div className="flex min-h-screen flex-col bg-[#111111] text-white">
       <header className="safe-top sticky top-0 z-20 border-b border-white/10 bg-[#111111] px-4 py-3 text-white">
         <div className="mx-auto flex max-w-6xl items-center justify-between gap-4">
           <div className="flex min-w-0 items-center gap-4">
-            <BrandMark mode="full" priority className="shrink-0 [&_img]:w-[150px] sm:[&_img]:w-[185px]" />
-            <div className="hidden h-9 w-px bg-white/10 lg:block" />
-            <nav className="hidden items-center gap-2 lg:flex">
-              {links.map((link) => {
-                const active = isActiveLink(link.href);
-
-                return (
-                  <Link
-                    key={link.href}
-                    href={link.href}
-                    className={`rounded-full px-4 py-2 text-sm font-semibold transition ${
-                      active ? "bg-highlight text-brand" : "text-white/68 hover:bg-white/8 hover:text-white"
-                    }`}
-                  >
-                    {link.label}
-                  </Link>
-                );
-              })}
-            </nav>
-            {branding ? (
-              <>
-                <div className="hidden h-9 w-px bg-white/10 xl:block" />
-                <Link href={tenantEntryHref} className="hidden xl:block">
-                  <TenantBrand
-                    organizationName={branding.organizationName}
-                    brandDisplayName={branding.brandDisplayName}
-                    brandLogoUrl={null} // Ocultado a pedido: apenas o nome deve aparecer no app
-                    brandPrimaryColor={branding.brandPrimaryColor}
-                    brandAccentColor={branding.brandAccentColor}
-                    compact
-                  />
-                </Link>
-              </>
-            ) : null}
+            <BrandMark mode="full" priority className="shrink-0 [&_img]:w-[182px] sm:[&_img]:w-[220px]" />
           </div>
 
           <div className="flex items-center gap-3">
-            <div className="flex flex-col items-end md:flex">
-              <span className="max-w-[120px] truncate text-xs font-bold leading-none text-white sm:max-w-none sm:text-sm">{session.name}</span>
-              <span className="text-[0.6rem] font-medium uppercase tracking-wider text-white/40">
-                {branding?.brandDisplayName || branding?.organizationName || session.role}
+            <div className="hidden flex-col items-end md:flex">
+              <span className="max-w-[180px] truncate text-sm font-bold leading-none text-white">{session.name}</span>
+              <span className="max-w-[220px] truncate text-[0.68rem] font-semibold uppercase tracking-wider text-white/45">
+                {session.role === "ACCOUNTANT"
+                  ? `Contador • ${branding?.brandDisplayName || branding?.organizationName || ""}`
+                  : `${session.role === "ADMIN" ? "Admin" : "Funcionário"} • ${branding?.brandDisplayName || branding?.organizationName || ""}`}
               </span>
             </div>
 
@@ -197,7 +173,7 @@ export function AppShell({
         </section>
       ) : null}
 
-      <main className="bg-[#f3efe8] pb-8 text-foreground">
+      <main className="flex-1 bg-[#f3efe8] pb-8 text-foreground">
         {children}
       </main>
     </div>

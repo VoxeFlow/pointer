@@ -32,11 +32,37 @@ export async function requireSession(options?: { allowPasswordChange?: boolean }
   return session;
 }
 
-export async function requireRole(role: "ADMIN" | "EMPLOYEE") {
+export async function requireRole(role: "ADMIN" | "ACCOUNTANT" | "EMPLOYEE") {
   const session = await requireSession();
 
   if (session.role !== role) {
-    redirect(session.role === "ADMIN" ? "/admin" : "/employee");
+    if (session.role === "ADMIN") {
+      redirect("/admin");
+    }
+
+    if (session.role === "ACCOUNTANT") {
+      redirect("/admin/accounting");
+    }
+
+    redirect("/employee");
+  }
+
+  return session;
+}
+
+export async function requireRoles(roles: Array<"ADMIN" | "ACCOUNTANT" | "EMPLOYEE">) {
+  const session = await requireSession();
+
+  if (!roles.includes(session.role)) {
+    if (session.role === "ADMIN") {
+      redirect("/admin");
+    }
+
+    if (session.role === "ACCOUNTANT") {
+      redirect("/admin/accounting");
+    }
+
+    redirect("/employee");
   }
 
   return session;

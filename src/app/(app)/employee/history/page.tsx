@@ -10,7 +10,7 @@ import { buildTimelineLabel, formatDateTime } from "@/lib/time";
 export default async function EmployeeHistoryPage() {
   const session = await requireRole("EMPLOYEE");
   const records = await db.timeRecord.findMany({
-    where: { userId: session.sub },
+    where: { userId: session.sub, isDisregarded: false },
     orderBy: { serverTimestamp: "desc" },
     take: 20,
   });

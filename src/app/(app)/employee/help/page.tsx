@@ -1,6 +1,23 @@
+import { DeviceConsentSettingsForm } from "@/components/employee/device-consent-settings-form";
 import { InstallCTA } from "@/components/pwa/install-cta";
+import { hasActiveDeviceConsent, hasActiveImageConsent } from "@/lib/consent";
+import { requireRole } from "@/lib/auth/guards";
+import { db } from "@/lib/db";
 
-export default function EmployeeHelpPage() {
+export default async function EmployeeHelpPage() {
+  const session = await requireRole("EMPLOYEE");
+  const user = await db.user.findUniqueOrThrow({
+    where: { id: session.sub },
+    select: {
+      deviceConsentAcceptedAt: true,
+      deviceConsentRevokedAt: true,
+      deviceConsentVersion: true,
+      imageConsentAcceptedAt: true,
+      imageConsentRevokedAt: true,
+      imageConsentVersion: true,
+    },
+  });
+
   return (
     <div className="mx-auto flex max-w-3xl flex-col gap-4 px-4 py-5">
       <section className="glass rounded-[2rem] p-5">
@@ -10,6 +27,12 @@ export default function EmployeeHelpPage() {
           liberadas, o proprio fluxo orienta como ativar.
         </p>
       </section>
+      <DeviceConsentSettingsForm
+        consentActive={hasActiveDeviceConsent(user)}
+        consentAcceptedAt={user.deviceConsentAcceptedAt?.toISOString() ?? null}
+        imageConsentActive={hasActiveImageConsent(user)}
+        imageConsentAcceptedAt={user.imageConsentAcceptedAt?.toISOString() ?? null}
+      />
       <InstallCTA standaloneOnly={false} />
     </div>
   );

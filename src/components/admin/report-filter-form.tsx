@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { Download, Calendar, User as UserIcon } from "lucide-react";
+import { Download, Calendar, User as UserIcon, FileText } from "lucide-react";
 
 type Employee = {
   id: string;
@@ -79,17 +79,18 @@ export function ReportFilterForm({ employees }: ReportFilterFormProps) {
         <a
           href={`/admin/reports/print?from=${fromDate}&to=${toDate}&userId=${selectedUser}`}
           target="_blank"
-          className="flex items-center justify-center gap-3 rounded-2xl bg-brand px-6 py-4 font-bold text-white shadow-lg shadow-brand/20 transition-all hover:bg-brand-strong hover:-translate-y-0.5 active:translate-y-0 text-center"
+          className="flex items-center justify-center gap-2 rounded-2xl bg-[#1d4ed8] px-6 py-4 font-bold text-white shadow-md transition-all hover:bg-[#1e40af] hover:-translate-y-0.5 active:translate-y-0 text-center"
         >
-          Visualizar Espelho (PDF)
+          <FileText className="size-5" />
+          Espelho de Ponto (PDF)
         </a>
 
         <a
           href={downloadUrl()}
-          className="flex items-center justify-center gap-3 rounded-2xl bg-[#f0eee9] border border-black/10 px-6 py-4 font-bold text-black shadow-sm transition-all hover:bg-white hover:-translate-y-0.5 active:translate-y-0 text-center"
+          className="flex items-center justify-center gap-2 rounded-2xl bg-[#f0eee9] border border-black/10 px-6 py-4 font-bold text-black shadow-sm transition-all hover:bg-white hover:-translate-y-0.5 active:translate-y-0 text-center"
         >
           <Download className="size-5 text-black" />
-          Exportar Planilha Excel
+          Exportar para Excel
         </a>
       </div>
 

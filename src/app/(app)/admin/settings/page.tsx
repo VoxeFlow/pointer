@@ -1,6 +1,8 @@
 import { BrandingSettingsForm } from "@/components/admin/branding-settings-form";
 import { BillingHistory } from "@/components/admin/billing-history";
 import { BillingPanel } from "@/components/admin/billing-panel";
+import { AdminAccountSettingsForm } from "@/components/admin/admin-account-settings-form";
+import { LocationSettingsForm } from "@/components/admin/location-settings-form";
 import { UpgradeRequestForm } from "@/components/admin/upgrade-request-form";
 import { CommercialSettingsForm } from "@/components/admin/commercial-settings-form";
 import { ReportSettingsForm } from "@/components/admin/report-settings-form";
@@ -13,9 +15,16 @@ import { billingService } from "@/services/billing-service";
 
 export default async function AdminSettingsPage() {
   const session = await requireRole("ADMIN");
-  const [organization, latestUpgradeRequest, upgradeRequests, billingEvents, invoices] = await Promise.all([
+  const [organization, adminUser, latestUpgradeRequest, upgradeRequests, billingEvents, invoices] = await Promise.all([
     db.organization.findUniqueOrThrow({
       where: { id: session.organizationId },
+    }),
+    db.user.findUniqueOrThrow({
+      where: { id: session.sub },
+      select: {
+        id: true,
+        email: true,
+      },
     }),
     db.upgradeRequest.findFirst({
       where: { organizationId: session.organizationId },
@@ -60,6 +69,9 @@ export default async function AdminSettingsPage() {
           <p>Maximo de registros por dia: {organization.maxRecordsPerDay}</p>
           <p>Foto obrigatoria: {organization.requirePhoto ? "Sim" : "Nao"}</p>
           <p>Geolocalizacao obrigatoria: {organization.requireGeolocation ? "Sim" : "Nao"}</p>
+          <p>Bloqueio por raio: {organization.enforceWorksiteRadius ? "Ativo" : "Inativo"}</p>
+          <p>Raio permitido: {organization.worksiteRadiusMeters} m</p>
+          <p>Endereco base: {organization.worksiteAddress ?? "Nao configurado"}</p>
           <p>Fallback por galeria: {organization.allowGalleryFallback ? "Permitido" : "Bloqueado"}</p>
           <p>Registros extraordinarios: {organization.allowExtraordinaryRecords ? "Permitidos" : "Bloqueados"}</p>
         </div>
@@ -67,6 +79,32 @@ export default async function AdminSettingsPage() {
           Regra geral aplicada no Pointer: até 8 horas diárias, 44 horas semanais, intervalo mínimo conforme duração da jornada
           e descanso mínimo de 11 horas entre jornadas. Casos especiais dependem de convenção, acordo ou regime específico.
         </p>
+      </section>
+
+      <section className="glass mt-4 rounded-[2rem] p-5">
+        <h2 className="text-lg font-semibold">Acesso do admin</h2>
+        <p className="mt-2 text-sm text-muted">
+          Atualize aqui o e-mail de login e a senha do administrador atual, sem precisar mexer direto no banco.
+        </p>
+        <div className="mt-5">
+          <AdminAccountSettingsForm email={adminUser.email} />
+        </div>
+      </section>
+
+      <section className="glass mt-4 rounded-[2rem] p-5">
+        <h2 className="text-lg font-semibold">Area permitida para registro</h2>
+        <p className="mt-2 text-sm text-muted">
+          Defina o endereco base da empresa e o raio maximo para permitir o registro de ponto apenas perto do local autorizado.
+        </p>
+        <div className="mt-5">
+          <LocationSettingsForm
+            enforceWorksiteRadius={organization.enforceWorksiteRadius}
+            worksiteAddress={organization.worksiteAddress}
+            worksiteRadiusMeters={organization.worksiteRadiusMeters}
+            worksiteLatitude={organization.worksiteLatitude?.toString() ?? null}
+            worksiteLongitude={organization.worksiteLongitude?.toString() ?? null}
+          />
+        </div>
       </section>
 
       <section className="glass mt-4 rounded-[2rem] p-5">

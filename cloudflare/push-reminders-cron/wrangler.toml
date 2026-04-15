@@ -1,0 +1,9 @@
+name = "pointer-push-reminders-cron"
+main = "src/index.ts"
+compatibility_date = "2026-04-08"
+
+[vars]
+POINTER_APP_URL = "https://pointer.voxeflow.com"
+
+[triggers]
+crons = ["*/5 * * * *"]

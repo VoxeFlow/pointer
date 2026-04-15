@@ -5,7 +5,7 @@ import { requireRole } from "@/lib/auth/guards";
 import { db } from "@/lib/db";
 import { env } from "@/lib/env";
 import { planDescriptions, planLabels } from "@/lib/plan";
-import { countPresentEmployees, getTodayWorkSummary } from "@/lib/time";
+import { countPresentEmployees, getRealtimeAttendanceIssue, getTodayWorkSummary } from "@/lib/time";
 import { billingService } from "@/services/billing-service";
 
 function getBillingStatusLabel(status: string) {
@@ -41,6 +41,7 @@ export default async function AdminDashboardPage() {
         },
         timeRecords: {
           where: {
+            isDisregarded: false,
             serverTimestamp: {
               gte: new Date(new Date().setHours(0, 0, 0, 0)),
               lte: new Date(new Date().setHours(23, 59, 59, 999)),
@@ -52,6 +53,7 @@ export default async function AdminDashboardPage() {
     db.timeRecord.findMany({
       where: {
         organizationId: session.organizationId,
+        isDisregarded: false,
         serverTimestamp: {
           gte: new Date(new Date().setHours(0, 0, 0, 0)),
           lte: new Date(new Date().setHours(23, 59, 59, 999)),
@@ -65,6 +67,20 @@ export default async function AdminDashboardPage() {
 
   const presentToday = countPresentEmployees(employees);
   const employeeDaySummaries = employees.map((employee) => getTodayWorkSummary(employee.timeRecords, employee.schedule, new Date()));
+  const employeesWithRealtimeIssues = employees
+    .map((employee) => ({
+      employee,
+      issue: getRealtimeAttendanceIssue(employee.timeRecords, employee.schedule, new Date()),
+    }))
+    .filter(
+      (
+        item,
+      ): item is {
+        employee: (typeof employees)[number];
+        issue: NonNullable<ReturnType<typeof getRealtimeAttendanceIssue>>;
+      } => item.issue !== null,
+    );
+  const missingEntryCount = employeesWithRealtimeIssues.filter((item) => item.issue.code === "MISSING_ENTRY").length;
   const employeesWithOvertime = employeeDaySummaries.filter((summary) => summary.extraMinutes > 0).length;
   const employeesPendingHours = employeeDaySummaries.filter((summary) => summary.isWorkingDay && summary.missingMinutes > 0).length;
   const inconsistentCount = recordsToday.filter((record) => record.isInconsistent).length;
@@ -150,6 +166,8 @@ export default async function AdminDashboardPage() {
         {[
           { label: "Funcionarios", value: employees.length },
           { label: "Presentes hoje", value: presentToday },
+          { label: "Sem entrada", value: missingEntryCount },
+          { label: "Pendencias agora", value: employeesWithRealtimeIssues.length },
           { label: "Saldo pendente", value: employeesPendingHours },
           { label: "Hora extra", value: employeesWithOvertime },
           { label: "Inconsistencias", value: inconsistentCount },
@@ -272,7 +290,38 @@ export default async function AdminDashboardPage() {
           </div>
         </article>
 
-        <article className="glass rounded-[2rem] border border-black/5 bg-[linear-gradient(180deg,rgba(255,255,255,0.88),rgba(249,246,241,0.88))] p-5">
+        <article className="glass rounded-[2rem] border border-black/5 bg-white p-5">
+          <div className="flex items-center justify-between">
+            <h2 className="text-lg font-semibold">Faltas de marcação em tempo real</h2>
+            <span className="text-sm font-semibold text-muted">{employeesWithRealtimeIssues.length} alerta(s)</span>
+          </div>
+          <div className="mt-4 grid gap-3">
+            {employeesWithRealtimeIssues.length > 0 ? (
+              employeesWithRealtimeIssues.slice(0, 8).map(({ employee, issue }) => (
+                <div key={employee.id} className="rounded-[1.25rem] border border-border/80 bg-white px-4 py-4 shadow-[0_12px_28px_rgba(0,0,0,0.04)]">
+                  <div className="flex items-center justify-between gap-3">
+                    <div>
+                      <p className="font-semibold">{employee.name}</p>
+                      <p className="mt-1 text-sm text-muted">{issue.title}</p>
+                    </div>
+                    <span className={`rounded-full px-3 py-1 text-xs font-bold uppercase tracking-[0.12em] ${
+                      issue.severity === "critical" ? "bg-red-100 text-red-700" : "bg-amber-100 text-amber-700"
+                    }`}>
+                      {issue.severity === "critical" ? "Critico" : "Atencao"}
+                    </span>
+                  </div>
+                  <p className="mt-3 text-sm text-muted">{issue.description}</p>
+                </div>
+              ))
+            ) : (
+              <div className="rounded-[1.25rem] border border-border/80 bg-white px-4 py-5 text-sm text-muted shadow-[0_12px_28px_rgba(0,0,0,0.04)]">
+                Nenhuma falta de marcação em tempo real neste momento.
+              </div>
+            )}
+          </div>
+        </article>
+
+        <article className="glass rounded-[2rem] border border-black/5 bg-white p-5">
           <div className="flex items-center justify-between">
             <h2 className="text-lg font-semibold">Acoes rapidas</h2>
           </div>

@@ -32,6 +32,7 @@ export default async function AdminRecordsPage({ searchParams }: RecordsPageProp
     db.timeRecord.findMany({
       where: {
         organizationId: session.organizationId,
+        isDisregarded: false,
         userId: filters.employeeId || undefined,
         recordType: selectedType,
         isInconsistent: filters.inconsistent === "true" ? true : undefined,

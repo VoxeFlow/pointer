@@ -1,4 +1,4 @@
-const CACHE_NAME = "pointer-static-v1";
+const CACHE_NAME = "pointer-static-v2";
 const OFFLINE_URL = "/offline";
 const ASSETS = ["/", "/login", "/offline", "/manifest.webmanifest"];
 
@@ -45,6 +45,59 @@ self.addEventListener("fetch", (event) => {
           return response;
         })
         .catch(() => caches.match(OFFLINE_URL));
+    }),
+  );
+});
+
+self.addEventListener("notificationclick", (event) => {
+  event.notification.close();
+
+  const href = event.notification.data?.href || "/employee";
+
+  event.waitUntil(
+    self.clients.matchAll({ type: "window", includeUncontrolled: true }).then((clients) => {
+      for (const client of clients) {
+        if ("focus" in client && client.url.includes(self.location.origin)) {
+          client.navigate(href);
+          return client.focus();
+        }
+      }
+
+      if (self.clients.openWindow) {
+        return self.clients.openWindow(href);
+      }
+
+      return undefined;
+    }),
+  );
+});
+
+self.addEventListener("push", (event) => {
+  if (!event.data) {
+    return;
+  }
+
+  let payload = null;
+
+  try {
+    payload = event.data.json();
+  } catch {
+    payload = {
+      title: "Pointer",
+      body: event.data.text(),
+      href: "/employee",
+    };
+  }
+
+  event.waitUntil(
+    self.registration.showNotification(payload.title || "Pointer", {
+      body: payload.body || "Você tem um lembrete de ponto.",
+      icon: "/brand/logo-simples.png",
+      badge: "/brand/logo-simples.png",
+      tag: payload.tag || "pointer-reminder",
+      data: {
+        href: payload.href || "/employee",
+      },
     }),
   );
 });

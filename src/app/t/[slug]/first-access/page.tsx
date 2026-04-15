@@ -5,6 +5,12 @@ import { BrandMark } from "@/components/ui/brand-mark";
 import { requireTenantSession } from "@/lib/auth/guards";
 import { passwordResetService } from "@/services/password-reset-service";
 
+function getTenantDefaultAppPath(slug: string, role: "ADMIN" | "ACCOUNTANT" | "EMPLOYEE") {
+  if (role === "ADMIN") return `/t/${slug}/admin`;
+  if (role === "ACCOUNTANT") return `/t/${slug}/admin/accounting`;
+  return `/t/${slug}/employee`;
+}
+
 export default async function TenantFirstAccessPage({
   params,
   searchParams,
@@ -18,7 +24,7 @@ export default async function TenantFirstAccessPage({
   const error = query.error ? decodeURIComponent(query.error) : null;
 
   if (!session.mustChangePassword) {
-    redirect(`/t/${slug}/${session.role === "ADMIN" ? "admin" : "employee"}`);
+    redirect(getTenantDefaultAppPath(slug, session.role));
   }
 
   async function completeFirstAccess(formData: FormData) {
@@ -36,7 +42,7 @@ export default async function TenantFirstAccessPage({
     }
 
     await passwordResetService.completeFirstAccess(session.sub, password);
-    redirect(`/t/${slug}/${session.role === "ADMIN" ? "admin" : "employee"}`);
+    redirect(getTenantDefaultAppPath(slug, session.role));
   }
 
   return (

@@ -3,6 +3,18 @@ import { NextResponse } from "next/server";
 import { getRequestOrigin } from "@/lib/http";
 import { authService } from "@/services/auth-service";
 
+function getPostLoginPath(role: "ADMIN" | "ACCOUNTANT" | "EMPLOYEE", tenantSlug?: string) {
+  if (tenantSlug) {
+    if (role === "ADMIN") return `/t/${tenantSlug}/admin`;
+    if (role === "ACCOUNTANT") return `/t/${tenantSlug}/admin/accounting`;
+    return `/t/${tenantSlug}/employee`;
+  }
+
+  if (role === "ADMIN") return "/admin";
+  if (role === "ACCOUNTANT") return "/admin/accounting";
+  return "/employee";
+}
+
 export async function POST(request: Request) {
   const formData = await request.formData();
   const email = String(formData.get("email") ?? "").trim();
@@ -27,11 +39,7 @@ export async function POST(request: Request) {
           ? tenantSlug
             ? `/t/${tenantSlug}/first-access`
             : "/first-access"
-          : tenantSlug
-            ? `/t/${tenantSlug}/${user.role === "ADMIN" ? "admin" : "employee"}`
-            : user.role === "ADMIN"
-              ? "/admin"
-              : "/employee",
+          : getPostLoginPath(user.role, tenantSlug),
         origin,
       ),
       { status: 303 },

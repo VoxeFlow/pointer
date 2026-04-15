@@ -15,6 +15,12 @@ import {
 import { BrandMark } from "@/components/ui/brand-mark";
 import { getSession } from "@/lib/auth/session";
 
+function getDefaultAppPath(role: "ADMIN" | "ACCOUNTANT" | "EMPLOYEE") {
+  if (role === "ADMIN") return "/admin";
+  if (role === "ACCOUNTANT") return "/admin/accounting";
+  return "/employee";
+}
+
 export default async function IndexPage() {
   const session = await getSession();
 
@@ -23,7 +29,7 @@ export default async function IndexPage() {
       redirect(`/t/${session.organizationSlug}/first-access`);
     }
 
-    redirect(session.role === "ADMIN" ? "/admin" : "/employee");
+    redirect(getDefaultAppPath(session.role));
   }
 
   return (

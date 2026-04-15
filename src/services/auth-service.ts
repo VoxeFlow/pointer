@@ -38,7 +38,7 @@ export const authService = {
       throw new Error("Credenciais invalidas ou usuario inativo.");
     }
 
-    if (user.organization.status === "SUSPENDED" && user.role !== "ADMIN") {
+    if (user.organization.status === "SUSPENDED" && user.role === "EMPLOYEE") {
       await auditLogRepository.create({
         organizationId: user.organizationId,
         actorUserId: user.id,

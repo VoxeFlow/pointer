@@ -9,6 +9,7 @@ export const timeRecordRepository = {
       where: {
         organizationId,
         userId,
+        isDisregarded: false,
         serverTimestamp: {
           gte: start,
           lte: end,
@@ -20,10 +21,22 @@ export const timeRecordRepository = {
   create(data: Parameters<typeof db.timeRecord.create>[0]["data"]) {
     return db.timeRecord.create({ data });
   },
+  findById(id: string) {
+    return db.timeRecord.findUnique({
+      where: { id },
+    });
+  },
+  update(id: string, data: Parameters<typeof db.timeRecord.update>[0]["data"]) {
+    return db.timeRecord.update({
+      where: { id },
+      data,
+    });
+  },
   listByOrganization(organizationId: string, from?: Date, to?: Date) {
     return db.timeRecord.findMany({
       where: {
         organizationId,
+        isDisregarded: false,
         serverTimestamp:
           from || to
             ? {

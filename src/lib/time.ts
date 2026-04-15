@@ -2,14 +2,29 @@ import { RecordType, type TimeRecord, type WorkSchedule, type WorkScheduleDay } 
 import {
   differenceInMinutes,
   endOfDay,
-  format,
   isSameDay,
   startOfDay,
 } from "date-fns";
-import { ptBR } from "date-fns/locale";
 
 import { RECORD_SEQUENCE } from "@/lib/constants";
 import { getDayWorkContext, getScheduleDayForDate } from "@/lib/schedule";
+
+type ScheduleLike = {
+  lateToleranceMinutes: number;
+  weekdays?: Array<
+    Pick<
+      WorkScheduleDay,
+      "weekday" | "isWorkingDay" | "startTime" | "endTime" | "breakMinMinutes" | "dailyWorkloadMinutes"
+    >
+  >;
+} | null | undefined;
+
+export type AttendanceIssue = {
+  code: "MISSING_ENTRY" | "OVER_BREAK" | "MISSING_EXIT";
+  severity: "warning" | "critical";
+  title: string;
+  description: string;
+};
 
 export function getDayRange(date = new Date()) {
   return {
@@ -174,6 +189,94 @@ export function getTodayWorkSummary(
         })
       : null,
   };
+}
+
+function parseTimeToMinutes(value?: string | null) {
+  if (!value) {
+    return null;
+  }
+
+  const [hours, minutes] = value.split(":").map(Number);
+
+  if (Number.isNaN(hours) || Number.isNaN(minutes)) {
+    return null;
+  }
+
+  return hours * 60 + minutes;
+}
+
+function getBrasiliaClockMinutes(date: Date) {
+  const parts = new Intl.DateTimeFormat("en-US", {
+    hour: "2-digit",
+    minute: "2-digit",
+    hour12: false,
+    timeZone: "America/Sao_Paulo",
+  })
+    .formatToParts(date)
+    .reduce<Record<string, string>>((accumulator, part) => {
+      if (part.type !== "literal") {
+        accumulator[part.type] = part.value;
+      }
+
+      return accumulator;
+    }, {});
+
+  return Number(parts.hour) * 60 + Number(parts.minute);
+}
+
+export function getRealtimeAttendanceIssue(
+  records: Pick<TimeRecord, "recordType" | "serverTimestamp">[],
+  schedule?: ScheduleLike,
+  date = new Date(),
+): AttendanceIssue | null {
+  const dayContext = getDayWorkContext(schedule?.weekdays ?? [], date);
+
+  if (!dayContext.isWorkingDay) {
+    return null;
+  }
+
+  const nowMinutes = getBrasiliaClockMinutes(date);
+  const expectedStartMinutes = parseTimeToMinutes(dayContext.expectedStartTime);
+  const predictedEndMinutes = parseTimeToMinutes(dayContext.predictedEndTime ?? dayContext.expectedEndTime);
+  const tolerance = schedule?.lateToleranceMinutes ?? 0;
+  const lastRecord = records.at(-1);
+
+  if (records.length === 0 && expectedStartMinutes !== null && nowMinutes >= expectedStartMinutes + tolerance) {
+    return {
+      code: "MISSING_ENTRY",
+      severity: "critical",
+      title: "Entrada pendente",
+      description: "Sua jornada já começou e ainda não há registro de entrada neste horário.",
+    };
+  }
+
+  if (lastRecord?.recordType === RecordType.BREAK_OUT) {
+    const breakElapsed = Math.max(0, differenceInMinutes(date, lastRecord.serverTimestamp));
+
+    if (breakElapsed >= dayContext.expectedBreakMinutes + 5) {
+      return {
+        code: "OVER_BREAK",
+        severity: "warning",
+        title: "Retorno do intervalo pendente",
+        description: "O intervalo já passou do tempo previsto e o retorno ainda não foi registrado.",
+      };
+    }
+  }
+
+  if (
+    (lastRecord?.recordType === RecordType.ENTRY || lastRecord?.recordType === RecordType.BREAK_IN) &&
+    predictedEndMinutes !== null &&
+    nowMinutes >= predictedEndMinutes + 5
+  ) {
+    return {
+      code: "MISSING_EXIT",
+      severity: "warning",
+      title: "Saída pendente",
+      description: "A jornada prevista já passou e falta registrar a saída final.",
+    };
+  }
+
+  return null;
 }
 
 export function getLateMinutes(

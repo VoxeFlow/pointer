@@ -30,6 +30,9 @@ export default async function AdminEmployeesPage({
           },
         },
         timeRecords: {
+          where: {
+            isDisregarded: false,
+          },
           orderBy: { serverTimestamp: "desc" },
           take: 1,
         },
