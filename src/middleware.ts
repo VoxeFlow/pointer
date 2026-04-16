@@ -2,7 +2,33 @@ import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
 
 import { SESSION_COOKIE_NAME } from "@/lib/constants";
-import { extractTenantSlugFromHost } from "@/lib/tenant";
+
+function extractTenantSlugFromHost(host: string | null) {
+  if (!host) {
+    return null;
+  }
+
+  const normalizedHost = host.split(":")[0].toLowerCase();
+  const rootDomain = (process.env.POINTER_ROOT_DOMAIN || "localhost:3000").split(":")[0].toLowerCase();
+
+  if (
+    normalizedHost === rootDomain ||
+    normalizedHost === "localhost" ||
+    normalizedHost === "127.0.0.1" ||
+    normalizedHost === `www.${rootDomain}`
+  ) {
+    return null;
+  }
+
+  if (normalizedHost.endsWith(`.${rootDomain}`)) {
+    const subdomain = normalizedHost.slice(0, -(rootDomain.length + 1));
+    if (subdomain && subdomain !== "www") {
+      return subdomain.split(".").pop() ?? null;
+    }
+  }
+
+  return null;
+}
 
 export function middleware(request: NextRequest) {
   const token = request.cookies.get(SESSION_COOKIE_NAME)?.value;
