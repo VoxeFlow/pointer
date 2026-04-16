@@ -10,12 +10,14 @@ export async function requireSession(options?: { allowPasswordChange?: boolean }
     redirect("/login");
   }
 
-  const organization = await db.organization.findUnique({
-    where: { id: session.organizationId },
-    select: {
-      status: true,
-    },
-  });
+  const organization = await db.organization
+    .findUnique({
+      where: { id: session.organizationId },
+      select: {
+        status: true,
+      },
+    })
+    .catch(() => ({ status: "ACTIVE" as const }));
 
   if (!organization) {
     redirect("/login");

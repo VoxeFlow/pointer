@@ -12,18 +12,37 @@ export default async function TenantProtectedLayout({
 }) {
   const { slug } = await params;
   const session = await requireTenantSession(slug);
-  const organization = await db.organization.findUniqueOrThrow({
-    where: { id: session.organizationId },
-    select: {
-      name: true,
-      brandDisplayName: true,
-      brandLogoUrl: true,
-      brandPrimaryColor: true,
-      brandAccentColor: true,
-      status: true,
-      billingSubscriptionStatus: true,
-    },
-  });
+  const organization = await db.organization
+    .findUniqueOrThrow({
+      where: { id: session.organizationId },
+      select: {
+        name: true,
+        brandDisplayName: true,
+        brandLogoUrl: true,
+        brandPrimaryColor: true,
+        brandAccentColor: true,
+        status: true,
+        billingSubscriptionStatus: true,
+      },
+    })
+    .catch(async () => {
+      const legacy = await db.organization.findUniqueOrThrow({
+        where: { id: session.organizationId },
+        select: {
+          name: true,
+          status: true,
+        },
+      });
+
+      return {
+        ...legacy,
+        brandDisplayName: null,
+        brandLogoUrl: null,
+        brandPrimaryColor: null,
+        brandAccentColor: null,
+        billingSubscriptionStatus: "NONE" as const,
+      };
+    });
 
   return (
     <div

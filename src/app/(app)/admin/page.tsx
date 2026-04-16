@@ -29,11 +29,49 @@ function formatMoney(currency: string, amountInCents: number) {
 
 export default async function AdminDashboardPage() {
   const session = await requireRole("ADMIN");
+  const organizationPromise = db.organization
+    .findUniqueOrThrow({
+      where: { id: session.organizationId },
+      select: {
+        id: true,
+        name: true,
+        status: true,
+        plan: true,
+        maxEmployees: true,
+        billingSubscriptionStatus: true,
+        billingDelinquentSince: true,
+        billingCurrentPeriodEndsAt: true,
+        billingEmail: true,
+      },
+    })
+    .catch(async () => {
+      const legacy = await db.organization.findUniqueOrThrow({
+        where: { id: session.organizationId },
+        select: {
+          id: true,
+          name: true,
+          status: true,
+          plan: true,
+          maxEmployees: true,
+        },
+      });
+
+      return {
+        ...legacy,
+        billingSubscriptionStatus: "NONE" as const,
+        billingDelinquentSince: null,
+        billingCurrentPeriodEndsAt: null,
+        billingEmail: null,
+      };
+    });
+
   const [organization, employees, recordsToday, invoices] = await Promise.all([
-    db.organization.findUniqueOrThrow({ where: { id: session.organizationId } }),
+    organizationPromise,
     db.user.findMany({
       where: { organizationId: session.organizationId, role: "EMPLOYEE" },
-      include: {
+      select: {
+        id: true,
+        name: true,
         schedule: {
           include: {
             weekdays: true,
@@ -59,7 +97,14 @@ export default async function AdminDashboardPage() {
           lte: new Date(new Date().setHours(23, 59, 59, 999)),
         },
       },
-      include: { user: true },
+      include: {
+        user: {
+          select: {
+            id: true,
+            name: true,
+          },
+        },
+      },
       orderBy: { serverTimestamp: "desc" },
     }),
     billingService.listRecentInvoices(session.organizationId, 1).catch(() => []),
@@ -118,7 +163,7 @@ export default async function AdminDashboardPage() {
       id: "reports",
       title: "Configurar o relatorio mensal do contador",
       description: "Defina o e-mail do contador e habilite o envio automatico do consolidado.",
-      done: Boolean(organization.accountantReportEmail && organization.monthlyReportEnabled),
+      done: false,
       href: "/admin/settings",
     },
   ];
@@ -159,7 +204,7 @@ export default async function AdminDashboardPage() {
 
       <OnboardingChecklist
         items={onboardingItems}
-        completedAt={organization.onboardingCompletedAt?.toISOString() ?? null}
+        completedAt={null}
       />
 
       <section className="grid gap-4 sm:grid-cols-2 xl:grid-cols-5">

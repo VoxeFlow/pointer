@@ -15,8 +15,11 @@ export default async function EmployeeHomePage() {
 
   const user = await db.user.findUniqueOrThrow({
     where: { id: session.sub },
-    include: {
-      organization: true,
+    select: {
+      id: true,
+      deviceConsentAcceptedAt: true,
+      deviceConsentRevokedAt: true,
+      deviceConsentVersion: true,
       schedule: {
         include: {
           weekdays: true,

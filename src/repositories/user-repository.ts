@@ -4,9 +4,22 @@ export const userRepository = {
   findByEmail(email: string) {
     return db.user.findUnique({
       where: { email },
-      include: {
-        organization: true,
-        schedule: true,
+      select: {
+        id: true,
+        organizationId: true,
+        name: true,
+        email: true,
+        passwordHash: true,
+        mustChangePassword: true,
+        role: true,
+        isActive: true,
+        organization: {
+          select: {
+            id: true,
+            slug: true,
+            status: true,
+          },
+        },
       },
     });
   },
@@ -18,9 +31,22 @@ export const userRepository = {
           slug,
         },
       },
-      include: {
-        organization: true,
-        schedule: true,
+      select: {
+        id: true,
+        organizationId: true,
+        name: true,
+        email: true,
+        passwordHash: true,
+        mustChangePassword: true,
+        role: true,
+        isActive: true,
+        organization: {
+          select: {
+            id: true,
+            slug: true,
+            status: true,
+          },
+        },
       },
     });
   },
